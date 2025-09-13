@@ -1,10 +1,16 @@
-from transformers import AutoProcessor, AutoModelForImageTextToText
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 import torch
+from transformers import AutoProcessor, AutoModelForImageTextToText
+from model.internvl.modeling_internvl_chat import InternVLChatModel
+
 
 # model_checkpoint = "OpenGVLab/InternVL3-1B-hf"
 model_checkpoint = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
 processor = AutoProcessor.from_pretrained(model_checkpoint)
-model = AutoModelForImageTextToText.from_pretrained(model_checkpoint, device_map="auto", dtype=torch.bfloat16)
+model = InternVLChatModel.from_pretrained(model_checkpoint).to(torch.bfloat16)
 messages = [
     {
         "role": "user",
