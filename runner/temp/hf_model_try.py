@@ -66,6 +66,17 @@ def test_mme():
 
         generate_ids = model.generate(**inputs, max_new_tokens=50)
         answer = processor.decode(generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+        
+        # 提取yes/no答案
+        import re
+        answer_lower = answer.lower().strip()
+        if re.search(r'\byes\b', answer_lower):
+            answer = "yes"
+        elif re.search(r'\bno\b', answer_lower):
+            answer = "no"
+        else:
+            # 如果没有找到yes/no，取第一个词
+            answer = answer.split()[0].strip() if answer.split() else "unknown"
 
         os.makedirs(f"evaluation/understanding/mme/{model_name}", exist_ok=True)
         with open(f"evaluation/understanding/mme/{model_name}/{category}.txt", "a") as f:

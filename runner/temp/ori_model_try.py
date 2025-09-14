@@ -117,7 +117,18 @@ def test_mme():
         pixel_values = load_image(image, max_num=12).to(torch.bfloat16).cuda()
 
         question = '<image>\n' + question
-        response = internvl.chat(tokenizer, pixel_values, question, generation_config).split("\n")[0].strip()
+        response_raw = internvl.chat(tokenizer, pixel_values, question, generation_config)
+        
+        # 提取yes/no答案
+        import re
+        response_lower = response_raw.lower().strip()
+        if re.search(r'\byes\b', response_lower):
+            response = "yes"
+        elif re.search(r'\bno\b', response_lower):
+            response = "no"
+        else:
+            # 如果没有找到yes/no，取第一个词
+            response = response_raw.split()[0].strip() if response_raw.split() else "unknown"
         print(f'User: {question}\nAssistant: {response}')
 
 if __name__ == "__main__":
