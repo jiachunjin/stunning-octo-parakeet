@@ -117,7 +117,7 @@ def test_mme():
         pixel_values = load_image(image, max_num=12).to(torch.bfloat16).cuda()
 
         question = '<image>\n' + question
-        response = internvl.chat(tokenizer, pixel_values, question, generation_config)
+        response = internvl.chat(tokenizer, pixel_values, question, generation_config).split("\n")[0].strip()
         print(f'User: {question}\nAssistant: {response}')
 
 if __name__ == "__main__":
