@@ -67,8 +67,8 @@ def test_mme():
         generate_ids = model.generate(**inputs, max_new_tokens=50)
         answer = processor.decode(generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True)
 
-        os.makedirs("evaluation/understanding/mme/model_name", exist_ok=True)
-        with open(f"evaluation/understanding/mme/model_name/{category}.txt", "a") as f:
+        os.makedirs(f"evaluation/understanding/mme/{model_name}", exist_ok=True)
+        with open(f"evaluation/understanding/mme/{model_name}/{category}.txt", "a") as f:
             line = f"{img_name}\t{question}\t{gt_answer}\t{answer}\n"
             f.write(line)
 
