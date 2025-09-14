@@ -1,29 +1,71 @@
-import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
-import torch
 from transformers import AutoProcessor, AutoModelForImageTextToText
-from model.internvl.modeling_internvl_chat import InternVLChatModel
+import torch
+
+# model_checkpoint = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B-Pretrained-HF"
+# processor = AutoProcessor.from_pretrained("/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B-HF")
+# model = AutoModelForImageTextToText.from_pretrained(model_checkpoint, device_map="auto", dtype=torch.bfloat16)
+
+# messages = [
+#     {
+#         "role": "user",
+#         "content": [
+#             {"type": "image", "url": "http://images.cocodataset.org/val2017/000000039769.jpg"},
+#             {"type": "text", "text": "这张图怎么样？"},
+#         ],
+#     }
+# ]
+
+# # messages = ["what is the weather in beijing?"]
+# # tokenizer = processor.tokenizer
+# # inputs = tokenizer(messages, return_tensors="pt")
+# inputs = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt").to(model.device, dtype=torch.bfloat16)
+# # print(processor.decode(inputs.input_ids[0]))
+# print(inputs.input_ids.shape)
 
 
-# model_checkpoint = "OpenGVLab/InternVL3-1B-hf"
-model_checkpoint = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
-processor = AutoProcessor.from_pretrained(model_checkpoint)
-model = InternVLChatModel.from_pretrained(model_checkpoint).to(torch.bfloat16)
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "url": "http://images.cocodataset.org/val2017/000000039769.jpg"},
-            {"type": "text", "text": "Please describe the image explicitly."},
-        ],
+# generate_ids = model.generate(**inputs, max_new_tokens=50)
+# decoded_output = processor.decode(generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+
+# print(decoded_output)
+
+# ---------------------------------------------
+def test_mme():
+    from datasets import load_dataset
+    from transformers import AutoProcessor, AutoModelForImageTextToText
+
+    model_checkpoint = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B-Pretrained-HF"
+    processor = AutoProcessor.from_pretrained("/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B-HF")
+    model = AutoModelForImageTextToText.from_pretrained(model_checkpoint, device_map="auto", dtype=torch.bfloat16)
+
+    data_files = {
+        "test": "/data/phd/jinjiachun/dataset/benchmark/darkyarding/MME/data/test-*-of-*.parquet"
     }
-]
+    dataset = load_dataset("parquet", data_files=data_files)
 
-inputs = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt").to(model.device, dtype=torch.bfloat16)
+    for i, data in enumerate(dataset["test"]):
+        img_name = data["question_id"].split("/")[-1]
+        category = data["category"]
+        image = data["image"].convert("RGB")
+        question = data["question"]
+        gt_answer = data["answer"]
 
-generate_ids = model.generate(**inputs, max_new_tokens=50)
-decoded_output = processor.decode(generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    # {"type": "image", "url": "http://images.cocodataset.org/val2017/000000039769.jpg"},
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": question},
+                ],
+            }
+        ]
 
-print(decoded_output)
+        inputs = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt").to(model.device, dtype=torch.bfloat16)
+
+        generate_ids = model.generate(**inputs, max_new_tokens=50)
+        decoded_output = processor.decode(generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+
+        print(decoded_output)
+
+if __name__ == "__main__":
+    test_mme()
