@@ -96,8 +96,6 @@ def main(args):
                 answer_length = answer.shape[1]
                 input_ids = torch.cat([question, answer], dim=1)
 
-                print(tokenizer.decode(input_ids[0]))
-
                 # construct input of the VLM
                 with torch.no_grad():
                     vit_embeds = teacher.vision_model(
@@ -128,20 +126,17 @@ def main(args):
                 input_embeds_student = input_embeds_student.reshape(B, N, C)
                 input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
 
-                print(input_embeds_student.shape, input_embeds_teacher.shape)
-
                 logits_student = internvl.language_model(
                     inputs_embeds        = input_embeds_student,
                     output_hidden_states = True,
-                ).logits[-1]
+                ).logits[-1][:, -answer_length-1:-1, :]
 
                 logits_teacher = teacher.language_model(
                     inputs_embeds        = input_embeds_teacher,
                     output_hidden_states = True,
-                ).logits[-1]
+                ).logits[-1][:, -answer_length-1:-1, :]
 
-                # compute KL divergence between logits_student and logits_teacher
-                # kl_div requires log_softmax for input and softmax for target
+                # compute loss for the answer part
                 logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
                 logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher, dim=-1)
                 kl_div = torch.nn.functional.kl_div(logits_student_log_softmax, logits_teacher_log_softmax, log_target=True, reduction='batchmean')
