@@ -112,18 +112,33 @@ def main(args):
 
                 vit_embeds_student = internvl.new_mlp1(internvl.down_proj(vit_embeds))
 
-                # input_embeds = internvl.language_model.get_input_embeddings()(input_ids)
-                # B, N, C = input_embeds.shape
-                # input_embeds = input_embeds.reshape(B * N, C)
+                input_embeds_teacher = teacher.language_model.get_input_embeddings()(input_ids)
+                B, N, C = input_embeds_teacher.shape
+                input_embeds_teacher = input_embeds_teacher.reshape(B * N, C)
 
-                # input_ids = input_ids.reshape(B * N)
-                # selected = (input_ids == img_context_token_id)
-                # assert selected.sum() != 0
-                # input_embeds[selected] = vit_embeds.reshape(-1, C).to(input_embeds.device)
+                input_ids = input_ids.reshape(B * N)
+                selected = (input_ids == img_context_token_id)
+                assert selected.sum() != 0
+                input_embeds_student = copy.deepcopy(input_embeds_teacher)
+                input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(input_embeds_student.device)
+                input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
 
                 # input_embeds = input_embeds.reshape(B, N, C)
 
-                print(vit_embeds_teacher.shape, vit_embeds_student.shape)
+                print(input_embeds_student.shape, input_embeds_teacher.shape)
+
+                hidden_states_student = internvl.language_model(
+                    inputs_embeds        = input_embeds_student,
+                    output_hidden_states = True,
+                ).hidden_states[-1]
+
+                hidden_states_teacher = teacher.language_model(
+                    inputs_embeds        = input_embeds_teacher,
+                    output_hidden_states = True,
+                ).hidden_states[-1]
+
+                print(hidden_states_student.shape, hidden_states_teacher.shape)
+
                 exit(0)
 
 
