@@ -93,8 +93,20 @@ def main(args):
                 print(tokenizer.decode(input_ids[0]))
 
                 # construct input of the VLM
-                vit_embeds = internvl.extract_feature(pixel_values)
-                print(f"vit_embeds.shape: {vit_embeds.shape}")
+                vit_embeds = internvl.vision_model(
+                    pixel_values         = pixel_values,
+                    output_hidden_states = False,
+                return_dict=True).last_hidden_state[:, 1:, :]
+
+                h = w = int(vit_embeds.shape[1] ** 0.5)
+                vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
+                vit_embeds = internvl.pixel_shuffle(vit_embeds, scale_factor=internvl.downsample_ratio)
+                vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
+
+                print(f"vit_embeds 1.shape: {vit_embeds.shape}")
+                vit_embeds = internvl.mlp1(vit_embeds)
+                print(f"vit_embeds 2.shape: {vit_embeds.shape}")
+
                 input_embeds = internvl.language_model.get_input_embeddings()(input_ids)
                 B, N, C = input_embeds.shape
                 input_embeds = input_embeds.reshape(B * N, C)
