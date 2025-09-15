@@ -138,14 +138,19 @@ def main(args):
                     output_hidden_states = True,
                 ).logits[-1]
 
-                print(logits_student.shape, logits_teacher.shape, answer_length)
+                print(f"Logits shapes - Student: {logits_student.shape}, Teacher: {logits_teacher.shape}")
+                print(f"Answer length: {answer_length}")
 
                 # compute KL divergence between logits_student and logits_teacher
                 # kl_div requires log_softmax for input and softmax for target
                 logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
                 logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher, dim=-1)
                 kl_div = torch.nn.functional.kl_div(logits_student_log_softmax, logits_teacher_log_softmax, log_target=True, reduction='batchmean')
-                print(kl_div)
+                print(f"KL Divergence: {kl_div.item():.4f}")
+                
+                # 检查数值稳定性
+                print(f"Student log_softmax range: [{logits_student_log_softmax.min().item():.4f}, {logits_student_log_softmax.max().item():.4f}]")
+                print(f"Teacher log_softmax range: [{logits_teacher_log_softmax.min().item():.4f}, {logits_teacher_log_softmax.max().item():.4f}]")
 
 
 

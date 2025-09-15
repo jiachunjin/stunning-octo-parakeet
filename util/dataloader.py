@@ -97,7 +97,7 @@ def get_llava_mix665k_dataloader():
             questions.append(question_inputs["input_ids"][0])
             answers.append(answer_inputs["input_ids"][0])
 
-        pixel_values = torch.stack(pixel_values).squeeze(0)
+        pixel_values = torch.stack(pixel_values)
         questions = torch.stack(questions)
         answers = torch.stack(answers)
 
