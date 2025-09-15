@@ -9,7 +9,6 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 from PIL import Image
 import torchvision.transforms as T
-from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
