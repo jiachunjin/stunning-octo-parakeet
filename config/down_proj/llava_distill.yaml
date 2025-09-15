@@ -1,0 +1,23 @@
+ann: 用理解蒸馏训一个clip down projector出来
+model:
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B
+  down_dim: 16
+
+
+# --------------------------------------------------
+train:
+  root: /data/phd/jinjiachun/experiment
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name down_proj
+  wandb_proj: *exp_name
+  output_dir: 0915_llava_distill
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 500000
+  save_every: 1000

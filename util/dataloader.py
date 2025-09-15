@@ -59,12 +59,16 @@ def get_llava_mix665k_dataloader():
 
     num_image_token = 256
 
-    img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
+    # img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
 
     img_path = "/data/phd/jinjiachun/dataset/llava_mix665k"
     ann_path = "/data/phd/jinjiachun/dataset/liuhaotian/LLaVA-Instruct-150K/llava_v1_5_mix665k.json"
 
     def collate_fn(batch):
+        pixel_values = []
+        questions = []
+        answers = []
+
         for item in batch:
             if "image" not in item:
                 continue
@@ -73,7 +77,7 @@ def get_llava_mix665k_dataloader():
             question = item["question"]
             answer = item["answer"]
 
-            pixel_values = load_image(image_path, max_num=12)
+            pixel_value = load_image(image_path, max_num=12)
             question = "<image>\n" + question
 
             template = get_conv_template("internvl2_5")
@@ -81,25 +85,34 @@ def get_llava_mix665k_dataloader():
             template.append_message(template.roles[1], None)
             query = template.get_prompt()
 
-            num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
+            num_patches_list = [pixel_value.shape[0]] if pixel_value is not None else []
 
             image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * num_image_token * num_patches_list[0] + IMG_END_TOKEN
             query = query.replace("<image>", image_tokens, 1)
 
-            model_inputs = tokenizer(query, return_tensors="pt")
-            num_IMG_CONTEXT_TOKEN = (model_inputs["input_ids"] == img_context_token_id).sum().item()
-
+            question_inputs = tokenizer(query, return_tensors="pt")
             answer_inputs = tokenizer(answer, return_tensors="pt")
-            print(num_IMG_CONTEXT_TOKEN, tokenizer.decode(answer_inputs["input_ids"][0]))
 
+            pixel_values.append(pixel_value)
+            questions.append(question_inputs["input_ids"][0])
+            answers.append(answer_inputs["input_ids"][0])
 
-        return batch
+            pixel_values = torch.stack(pixel_values).squeeze(0)
+            questions = torch.stack(questions)
+            answers = torch.stack(answers)
+
+        return {
+            "pixel_values": pixel_values,
+            "question": questions,
+            "answer": answers,
+        }
+
 
     dataloader = torch.utils.data.DataLoader(
         LLaVAMix665K(img_path, ann_path),
         batch_size  = 1,
         shuffle     = True,
-        num_workers = 4,
+        num_workers = 1,
         pin_memory  = True,
         drop_last   = True,
         collate_fn  = collate_fn,
@@ -108,8 +121,14 @@ def get_llava_mix665k_dataloader():
     return dataloader
 
 if __name__ == "__main__":
+    from transformers import AutoTokenizer
     dataloader = get_llava_mix665k_dataloader()
+    tokenizer = AutoTokenizer.from_pretrained("/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B", trust_remote_code=True, use_fast=False)
+
     for batch in dataloader:
-        pass
+        print(batch["pixel_values"].shape, batch["question"].shape, batch["answer"].shape)
+        print(tokenizer.decode(batch["question"][0]))
+        print(tokenizer.decode(batch["answer"][0]))
+        break
         # print(batch)
         # break
