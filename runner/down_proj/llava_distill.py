@@ -22,7 +22,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 def add_down_proj(internvl, config):
     internvl.requires_grad_(False)
-    down_proj = nn.Linear(internvl.config.hidden_size, config.down_dim)
+    down_proj = nn.Linear(config.high_dim, config.down_dim)
     internvl.down_proj = down_proj
     internvl.down_proj.requires_grad_(True)
 
@@ -33,7 +33,7 @@ def main(args):
     accelerator, output_dir = get_accelerator(config)
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
-    add_down_proj(internvl, config.model)
+    internvl = add_down_proj(internvl, config.model)
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
 
     dataloader = get_llava_mix665k_dataloader()
