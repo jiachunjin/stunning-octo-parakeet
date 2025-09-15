@@ -78,6 +78,8 @@ def get_llava_mix665k_dataloader():
             answer = item["answer"]
 
             pixel_value = load_image(image_path, max_num=12)
+            if pixel_value is None:
+                continue
             question = "<image>\n" + question
 
             template = get_conv_template("internvl2_5")

@@ -74,7 +74,11 @@ def load_image(image_file, input_size=448, max_num=12):
     if isinstance(image_file, Image.Image):
         image = image_file
     else:
-        image = Image.open(image_file).convert('RGB')
+        try:
+            image = Image.open(image_file).convert('RGB')
+        except Exception as e:
+            print(f"Error loading image {image_file}: {e}")
+            return None
     transform = build_transform(input_size=input_size)
     images = dynamic_preprocess(image, image_size=input_size, use_thumbnail=True, max_num=max_num)
     pixel_values = [transform(image) for image in images]
