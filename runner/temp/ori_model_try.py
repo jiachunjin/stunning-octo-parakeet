@@ -9,7 +9,6 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 from PIL import Image
 import torchvision.transforms as T
-from decord import VideoReader, cpu
 from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 
@@ -90,12 +89,26 @@ def load_image(image_file, input_size=448, max_num=12):
     pixel_values = torch.stack(pixel_values)
     return pixel_values
 
+def extract_yes_no_answer(response_raw):
+    import re
+    response_lower = response_raw.lower().strip()
+    if re.search(r'\byes\b', response_lower):
+        response = "yes"
+    elif re.search(r'\bno\b', response_lower):
+        response = "no"
+    else:
+        # 如果没有找到yes/no，取第一个词
+        response = response_raw.split()[0].strip() if response_raw.split() else "unknown"
+    return response
+
+
 @torch.inference_mode()
 def test_mme():
     device = torch.device("cuda")
     dtype = torch.bfloat16
     
     internvl_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
+    model_name = internvl_path.split("/")[-1]
     internvl = InternVLChatModel.from_pretrained(internvl_path)
     internvl = internvl.to(device, dtype).eval()
 
@@ -118,18 +131,11 @@ def test_mme():
 
         question = '<image>\n' + question
         response_raw = internvl.chat(tokenizer, pixel_values, question, generation_config)
-        
-        # 提取yes/no答案
-        import re
-        response_lower = response_raw.lower().strip()
-        if re.search(r'\byes\b', response_lower):
-            response = "yes"
-        elif re.search(r'\bno\b', response_lower):
-            response = "no"
-        else:
-            # 如果没有找到yes/no，取第一个词
-            response = response_raw.split()[0].strip() if response_raw.split() else "unknown"
-        print(f'User: {question}\nAssistant: {response}')
+        answer = extract_yes_no_answer(response_raw)
+        os.makedirs(f"evaluation/understanding/mme/{model_name}", exist_ok=True)
+        with open(f"evaluation/understanding/mme/{model_name}/{category}.txt", "a") as f:
+            line = f"{img_name}\t{question}\t{gt_answer}\t{answer}\n"
+            f.write(line)
 
 if __name__ == "__main__":
     test_mme()
