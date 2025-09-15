@@ -79,8 +79,8 @@ def main(args):
     while not training_done:
         for batch in dataloader:
             pixel_values = batch["pixel_values"].to(dtype)
-            question = batch["question"].to(dtype)
-            answer = batch["answer"].to(dtype)
+            question = batch["question"]
+            answer = batch["answer"]
 
             print(pixel_values.shape, tokenizer.decode(question[0]), tokenizer.decode(answer[0]))
             exit(0)
