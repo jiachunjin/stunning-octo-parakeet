@@ -9,6 +9,7 @@ from model.internvl.modeling_internvl_chat import InternVLChatModel
 from runner.down_proj.llava_distill import add_down_proj
 from runner.temp.ori_model_try import load_image
 from datasets import load_dataset
+from runner.temp.ori_model_try import extract_yes_no_answer
 
 
 @torch.inference_mode()
@@ -19,7 +20,6 @@ def test_ori_down_proj():
     # load trained internvl with new projector
     config = OmegaConf.load("config/down_proj/llava_distill.yaml")
     internvl_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
-    model_name = internvl_path.split("/")[-1]
     internvl = InternVLChatModel.from_pretrained(internvl_path)
     internvl = add_down_proj(internvl, config.model)
     
@@ -67,4 +67,13 @@ def test_ori_down_proj():
 
         response_raw = internvl.chat(tokenizer, pixel_values, question_prime, generation_config)
 
-        print(response_raw)
+        answer = extract_yes_no_answer(response_raw)
+        print(response_raw, answer)
+        model_name = "internvl-down_proj-1000"
+        os.makedirs(f"evaluation/understanding/mme/{model_name}", exist_ok=True)
+        with open(f"evaluation/understanding/mme/{model_name}/{category}.txt", "a") as f:
+            line = f"{img_name}\t{question}\t{gt_answer}\t{answer}\n"
+            f.write(line)
+
+if __name__ == "__main__":
+    test_ori_down_proj()
