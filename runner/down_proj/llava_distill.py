@@ -90,6 +90,8 @@ def main(args):
                 answer_length = answer.shape[1]
                 input_ids = torch.cat([question, answer], dim=1)
 
+                print(tokenizer.decode(input_ids[0]))
+
                 # construct input of the VLM
                 vit_embeds = internvl.extract_feature(pixel_values)
                 print(f"vit_embeds.shape: {vit_embeds.shape}")
