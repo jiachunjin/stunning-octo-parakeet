@@ -97,10 +97,9 @@ def get_llava_mix665k_dataloader():
             questions.append(question_inputs["input_ids"][0])
             answers.append(answer_inputs["input_ids"][0])
 
-        # 移动到循环外面进行stack操作
-        pixel_values = torch.stack(pixel_values)
-        questions = torch.stack(questions)
-        answers = torch.stack(answers)
+        pixel_values = torch.stack(pixel_values).squeeze(0)
+        questions = torch.stack(questions).squeeze(0)
+        answers = torch.stack(answers).squeeze(0)
 
         return {
             "pixel_values": pixel_values,
