@@ -94,7 +94,7 @@ def main(args):
                 answer = batch["answer"]
 
                 answer_length = answer.shape[1]
-                input_ids = torch.cat([question, answer], dim=1)
+                input_ids = torch.cat([question, answer], dim=1).to(torch.int64)
 
                 # construct input of the VLM
                 with torch.no_grad():
