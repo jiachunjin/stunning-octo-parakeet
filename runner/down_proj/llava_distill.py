@@ -86,6 +86,8 @@ def main(args):
     
     while not training_done:
         for batch in dataloader:
+            if batch is None:
+                continue
             with accelerator.accumulate([internvl]):
                 pixel_values = batch["pixel_values"].to(dtype)
                 question = batch["question"]
