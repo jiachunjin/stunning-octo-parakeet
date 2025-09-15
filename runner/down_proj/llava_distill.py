@@ -140,20 +140,28 @@ def main(args):
                     output_hidden_states = True,
                 ).logits[-1]
 
-                print(f"Logits shapes - Student: {logits_student.shape}, Teacher: {logits_teacher.shape}")
-                print(f"Answer length: {answer_length}")
-
                 # compute KL divergence between logits_student and logits_teacher
                 # kl_div requires log_softmax for input and softmax for target
                 logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
                 logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher, dim=-1)
                 kl_div = torch.nn.functional.kl_div(logits_student_log_softmax, logits_teacher_log_softmax, log_target=True, reduction='batchmean')
-                print(f"KL Divergence: {kl_div.item():.4f}")
-                
-                # 检查数值稳定性
-                print(f"Student log_softmax range: [{logits_student_log_softmax.min().item():.4f}, {logits_student_log_softmax.max().item():.4f}]")
-                print(f"Teacher log_softmax range: [{logits_teacher_log_softmax.min().item():.4f}, {logits_teacher_log_softmax.max().item():.4f}]")
 
+                loss = kl_div
+
+                accelerator.backward(loss)
+
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(params_to_learn, 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    global_step += 1
+                    progress_bar.update(1)
+                    logs = dict(
+                        kl_div = accelerator.gather(kl_div.detach()).mean().item(),
+                    )
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
 
 
 if __name__ == "__main__":
