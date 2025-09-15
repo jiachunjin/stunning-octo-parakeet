@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+import copy
 import torch
 import argparse
 import torch.nn as nn
@@ -33,6 +34,9 @@ def main(args):
     accelerator, output_dir = get_accelerator(config)
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
+    teacher = copy.deepcopy(internvl)  
+    teacher.requires_grad_(False)
+    
     internvl = add_down_proj(internvl, config.model)
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
 
@@ -57,6 +61,7 @@ def main(args):
         dtype = torch.float32
     
     internvl, optimizer, dataloader = accelerator.prepare(internvl, optimizer, dataloader)
+    teacher = teacher.to(accelerator.device, dtype).eval()
 
     training_done = False
     epoch = 0
@@ -82,9 +87,9 @@ def main(args):
             question = batch["question"]
             answer = batch["answer"]
 
-            print(pixel_values.shape, tokenizer.decode(question[0]), tokenizer.decode(answer[0]))
+            print(pixel_values.shape, question.shape, answer.shape)
             exit(0)
-            
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
