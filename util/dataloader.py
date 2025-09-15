@@ -1,4 +1,7 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import json
 import torch
 import random
@@ -45,6 +48,19 @@ class LLaVAMix665K(torch.utils.data.Dataset):
             return item
 
 def get_llava_mix665k_dataloader():
+    from transformers import AutoTokenizer
+    from util.internvl_preprocess import load_image
+    from model.internvl.conversation import get_conv_template
+
+    tokenizer = AutoTokenizer.from_pretrained("/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B", trust_remote_code=True, use_fast=False)
+    IMG_START_TOKEN = "<img>"
+    IMG_CONTEXT_TOKEN = "<IMG_CONTEXT>"
+    IMG_END_TOKEN = "</img>"
+
+    num_image_token = 256
+
+    img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
+
     img_path = None
     ann_path = None
 
@@ -56,23 +72,30 @@ def get_llava_mix665k_dataloader():
             image_path = item["image"]
             question = item["question"]
             answer = item["answer"]
-            
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image", "url": img_path},
-                        {"type": "text", "text": question},
-                    ],
-                }
-            ]
+
+            pixel_values = load_image(image_path, max_num=12)
+            question = '<image>\n' + question
+
+            template = get_conv_template("internvl2_5")
+            template.append_message(template.roles[0], question)
+            template.append_message(template.roles[1], None)
+            query = template.get_prompt()
+
+            num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
+
+            image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * num_image_token * num_patches_list[0] + IMG_END_TOKEN
+            query = query.replace('<image>', image_tokens, 1)
+
+            model_inputs = tokenizer(query, return_tensors="pt")
+            num_IMG_CONTEXT_TOKEN = model_inputs["input_ids"].count(img_context_token_id)
+            print(query, num_IMG_CONTEXT_TOKEN)
 
 
         return batch
 
     dataloader = torch.utils.data.DataLoader(
         LLaVAMix665K(img_path, ann_path),
-        batch_size  = 2,
+        batch_size  = 1,
         shuffle     = True,
         num_workers = 4,
         pin_memory  = True,
@@ -81,3 +104,10 @@ def get_llava_mix665k_dataloader():
     )
 
     return dataloader
+
+if __name__ == "__main__":
+    dataloader = get_llava_mix665k_dataloader()
+    for batch in dataloader:
+        pass
+        # print(batch)
+        # break
