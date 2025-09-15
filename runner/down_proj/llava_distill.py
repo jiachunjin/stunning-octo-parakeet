@@ -25,6 +25,10 @@ def add_down_proj(internvl, config):
     internvl.down_proj = down_proj
     internvl.down_proj.requires_grad_(True)
 
+    new_mlp1 = nn.Linear(config.down_dim, 1024)
+    internvl.new_mlp1 = new_mlp1
+    internvl.new_mlp1.requires_grad_(True)
+
     return internvl
 
 def main(args):
@@ -93,32 +97,33 @@ def main(args):
                 print(tokenizer.decode(input_ids[0]))
 
                 # construct input of the VLM
-                vit_embeds = internvl.vision_model(
-                    pixel_values         = pixel_values,
-                    output_hidden_states = False,
-                return_dict=True).last_hidden_state[:, 1:, :]
+                with torch.no_grad():
+                    vit_embeds = teacher.vision_model(
+                        pixel_values         = pixel_values,
+                        output_hidden_states = False,
+                    return_dict=True).last_hidden_state[:, 1:, :]
 
-                h = w = int(vit_embeds.shape[1] ** 0.5)
-                vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
-                vit_embeds = internvl.pixel_shuffle(vit_embeds, scale_factor=internvl.downsample_ratio)
-                vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
+                    h = w = int(vit_embeds.shape[1] ** 0.5)
+                    vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
+                    vit_embeds = teacher.pixel_shuffle(vit_embeds, scale_factor=teacher.downsample_ratio)
+                    vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
 
-                print(f"vit_embeds 1.shape: {vit_embeds.shape}")
-                vit_embeds = internvl.mlp1(vit_embeds)
-                print(f"vit_embeds 2.shape: {vit_embeds.shape}")
+                    vit_embeds_teacher = teacher.mlp1(vit_embeds)
 
-                input_embeds = internvl.language_model.get_input_embeddings()(input_ids)
-                B, N, C = input_embeds.shape
-                input_embeds = input_embeds.reshape(B * N, C)
+                vit_embeds_student = internvl.new_mlp1(internvl.down_proj(vit_embeds))
 
-                input_ids = input_ids.reshape(B * N)
-                selected = (input_ids == img_context_token_id)
-                assert selected.sum() != 0
-                input_embeds[selected] = vit_embeds.reshape(-1, C).to(input_embeds.device)
+                # input_embeds = internvl.language_model.get_input_embeddings()(input_ids)
+                # B, N, C = input_embeds.shape
+                # input_embeds = input_embeds.reshape(B * N, C)
 
-                input_embeds = input_embeds.reshape(B, N, C)
+                # input_ids = input_ids.reshape(B * N)
+                # selected = (input_ids == img_context_token_id)
+                # assert selected.sum() != 0
+                # input_embeds[selected] = vit_embeds.reshape(-1, C).to(input_embeds.device)
 
-                print(pixel_values.shape, question.shape, answer.shape, input_embeds.shape)
+                # input_embeds = input_embeds.reshape(B, N, C)
+
+                print(vit_embeds_teacher.shape, vit_embeds_student.shape)
                 exit(0)
 
 
