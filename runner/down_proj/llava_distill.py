@@ -18,8 +18,6 @@ from model.internvl.modeling_internvl_chat import InternVLChatModel
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-IMAGENET_MEAN = (0.485, 0.456, 0.406)
-IMAGENET_STD = (0.229, 0.224, 0.225)
 
 def add_down_proj(internvl, config):
     internvl.requires_grad_(False)
@@ -39,6 +37,7 @@ def main(args):
     
     internvl = add_down_proj(internvl, config.model)
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
+    img_context_token_id = tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
 
     dataloader = get_llava_mix665k_dataloader()
 
@@ -83,12 +82,30 @@ def main(args):
     
     while not training_done:
         for batch in dataloader:
-            pixel_values = batch["pixel_values"].to(dtype)
-            question = batch["question"]
-            answer = batch["answer"]
+            with accelerator.accumulate([internvl]):
+                pixel_values = batch["pixel_values"].to(dtype)
+                question = batch["question"]
+                answer = batch["answer"]
 
-            print(pixel_values.shape, question.shape, answer.shape)
-            exit(0)
+                answer_length = answer.shape[1]
+                input_ids = torch.cat([question, answer], dim=1)
+
+                # construct input of the VLM
+                vit_embeds = internvl.extract_feature(pixel_values)
+                print(f"vit_embeds.shape: {vit_embeds.shape}")
+                input_embeds = internvl.language_model.get_input_embeddings()(input_ids)
+                B, N, C = input_embeds.shape
+                input_embeds = input_embeds.reshape(B * N, C)
+
+                input_ids = input_ids.reshape(B * N)
+                selected = (input_ids == img_context_token_id)
+                assert selected.sum() != 0
+                input_embeds[selected] = vit_embeds.reshape(-1, C).to(input_embeds.device)
+
+                input_embeds = input_embeds.reshape(B, N, C)
+
+                print(pixel_values.shape, question.shape, answer.shape, input_embeds.shape)
+                exit(0)
 
 
 if __name__ == "__main__":
