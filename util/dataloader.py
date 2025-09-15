@@ -61,8 +61,8 @@ def get_llava_mix665k_dataloader():
 
     img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
 
-    img_path = None
-    ann_path = None
+    img_path = "/data/phd/jinjiachun/dataset/llava_mix665k"
+    ann_path = "/data/phd/jinjiachun/dataset/liuhaotian/LLaVA-Instruct-150K/llava_v1_5_mix665k.json"
 
     def collate_fn(batch):
         for item in batch:
@@ -74,7 +74,7 @@ def get_llava_mix665k_dataloader():
             answer = item["answer"]
 
             pixel_values = load_image(image_path, max_num=12)
-            question = '<image>\n' + question
+            question = "<image>\n" + question
 
             template = get_conv_template("internvl2_5")
             template.append_message(template.roles[0], question)
@@ -84,11 +84,13 @@ def get_llava_mix665k_dataloader():
             num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
 
             image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * num_image_token * num_patches_list[0] + IMG_END_TOKEN
-            query = query.replace('<image>', image_tokens, 1)
+            query = query.replace("<image>", image_tokens, 1)
 
             model_inputs = tokenizer(query, return_tensors="pt")
-            num_IMG_CONTEXT_TOKEN = model_inputs["input_ids"].count(img_context_token_id)
-            print(query, num_IMG_CONTEXT_TOKEN)
+            num_IMG_CONTEXT_TOKEN = (model_inputs["input_ids"] == img_context_token_id).sum().item()
+
+            answer_inputs = tokenizer(answer, return_tensors="pt")
+            print(num_IMG_CONTEXT_TOKEN, tokenizer.decode(answer_inputs["input_ids"][0]))
 
 
         return batch
