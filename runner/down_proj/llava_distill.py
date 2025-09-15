@@ -123,7 +123,8 @@ def main(args):
                 input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(input_embeds_student.device)
                 input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
 
-                # input_embeds = input_embeds.reshape(B, N, C)
+                input_embeds_student = input_embeds_student.reshape(B, N, C)
+                input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
 
                 print(input_embeds_student.shape, input_embeds_teacher.shape)
 
