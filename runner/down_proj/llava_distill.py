@@ -138,7 +138,7 @@ def main(args):
                     output_hidden_states = True,
                 ).logits[-1]
 
-                print(logits_student.shape, logits_teacher.shape)
+                print(logits_student.shape, logits_teacher.shape, answer_length)
 
                 # compute KL divergence between logits_student and logits_teacher
                 # kl_div requires log_softmax for input and softmax for target
