@@ -1,7 +1,7 @@
 ann: 用理解蒸馏训一个clip down projector出来
 model:
   internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B
-  proj_type: mlp #[mlp, transformer]
+  proj_type: linear #[linear, transformer]
   high_dim: 4096
   down_dim: 16
   # below used only for transformer
@@ -18,7 +18,7 @@ train:
 
   exp_name: &exp_name down_proj
   wandb_proj: *exp_name
-  output_dir: 0916_llava_distill_mlp_debug
+  output_dir: 0916_llava_distill_linear_debug
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
