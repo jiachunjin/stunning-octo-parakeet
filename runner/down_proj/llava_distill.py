@@ -147,8 +147,6 @@ def main(args):
                     output_hidden_states = True,
                 ).logits[:, -answer_length-1:-1, :]
 
-                print(logits_student.shape, logits_teacher.shape)
-
                 # compute loss for the answer part
                 logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
                 logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher, dim=-1)

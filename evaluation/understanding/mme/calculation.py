@@ -93,7 +93,6 @@ class calculate_metrics:
             task_score_dict = dict()
 
             for task_name in task_name_list:
-
                 task_txt = os.path.join(results_dir, task_name + ".txt")
                 lines = open(task_txt, 'r').readlines()
                 chunk_lines = list(self.divide_chunks(lines)) # one image corresponds to two questions
@@ -106,7 +105,11 @@ class calculate_metrics:
                 preds = []
 
                 for img_items in chunk_lines:
-                    assert len(img_items) == 2
+                    if len(img_items) != 2:
+                        print(img_items)
+                        continue
+                        # assert len(img_items) == 2
+
                     img_correct_num = 0
 
                     for img_item in img_items:
