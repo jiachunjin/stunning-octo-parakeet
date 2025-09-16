@@ -14,6 +14,7 @@ from util.accelerator import get_accelerator
 from util.dataloader import get_llava_mix665k_dataloader
 from util.misc import flatten_dict
 from model.internvl.modeling_internvl_chat import InternVLChatModel
+from model.projector.transformer import Transformer_Projector
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -21,7 +22,17 @@ torch.backends.cudnn.allow_tf32 = True
 
 def add_down_proj(internvl, config):
     internvl.requires_grad_(False)
-    down_proj = nn.Linear(config.high_dim, config.down_dim)
+    if config.proj_type == "linear":
+        down_proj = nn.Linear(config.high_dim, config.down_dim)
+        num_params = sum(p.numel() for p in down_proj.parameters() if p.requires_grad)
+        print(f"down_proj 可训练参数量: {num_params}")
+    elif config.proj_type == "transformer":
+        down_proj = Transformer_Projector(config.model)
+        num_params = sum(p.numel() for p in down_proj.parameters() if p.requires_grad)
+        print(f"down_proj 可训练参数量: {num_params}")
+    else:
+        raise ValueError(f"Invalid proj_type: {config.proj_type}")
+
     internvl.down_proj = down_proj
     internvl.down_proj.requires_grad_(True)
 
