@@ -51,6 +51,12 @@ def main(args):
     teacher.requires_grad_(False)
     
     internvl = add_down_proj(internvl, config.model)
+    if config.train.resume_path is not None:
+        ckpt = torch.load(config.train.resume_path, map_location="cpu", weights_only=True)
+        m, u = internvl.load_state_dict(ckpt, strict=False)
+        print(f"missing keys: {m}, unmatched keys: {u}")
+
+
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
     img_context_token_id = tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
 
