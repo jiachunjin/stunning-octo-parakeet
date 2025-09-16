@@ -140,14 +140,12 @@ def main(args):
                 logits_student = internvl.language_model(
                     inputs_embeds        = input_embeds_student,
                     output_hidden_states = True,
-                ).logits[:, -answer_length-1:-1, :]
+                ).logits[:, -answer_length-1:-1]
 
                 logits_teacher = teacher.language_model(
                     inputs_embeds        = input_embeds_teacher,
                     output_hidden_states = True,
-                ).logits[:, -answer_length-1:-1, :]
-
-                print(logits_student.shape, logits_teacher.shape)
+                ).logits[:, -answer_length-1:-1]
 
                 # compute loss for the answer part
                 logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
