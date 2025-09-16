@@ -27,7 +27,7 @@ def add_down_proj(internvl, config):
         num_params = sum(p.numel() for p in down_proj.parameters() if p.requires_grad)
         print(f"down_proj 可训练参数量: {num_params}")
     elif config.proj_type == "transformer":
-        down_proj = Transformer_Projector(config.model)
+        down_proj = Transformer_Projector(config)
         num_params = sum(p.numel() for p in down_proj.parameters() if p.requires_grad)
         print(f"down_proj 可训练参数量: {num_params}")
     else:
