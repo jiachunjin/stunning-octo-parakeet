@@ -3,4 +3,4 @@ accelerate launch \
 --main_process_port 30002 \
 --num_processes 8 \
 runner/down_proj/joint_training.py \
---config config/down_proj/llava_distill.yaml
+--config config/down_proj/joint_training.yaml
