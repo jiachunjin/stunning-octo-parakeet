@@ -47,7 +47,7 @@ def main(args):
     accelerator, output_dir = get_accelerator(config)
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
-    teacher = copy.deepcopy(internvl)  
+    teacher = copy.deepcopy(internvl)
     teacher.requires_grad_(False)
     
     internvl = add_down_proj(internvl, config.model)

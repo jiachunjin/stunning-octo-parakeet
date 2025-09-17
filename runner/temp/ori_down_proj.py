@@ -18,12 +18,16 @@ def test_ori_down_proj():
     dtype = torch.bfloat16
 
     # load trained internvl with new projector
-    config = OmegaConf.load("config/down_proj/llava_distill.yaml")
+    exp_dir = "/data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug"
+    exp_name = exp_dir.split("/")[-1]
+    step = 45000
+    config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     internvl_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
     internvl = InternVLChatModel.from_pretrained(internvl_path)
     internvl = add_down_proj(internvl, config.model)
     
-    ckpt_path = "/data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug/internvl-down_proj-3000"
+    ckpt_path = f"/data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug/internvl-down_proj-{step}"
+    print(ckpt_path)
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     m, u = internvl.load_state_dict(ckpt, strict=False)
     print(f"missing keys: {m}, unmatched keys: {u}")    
@@ -69,7 +73,7 @@ def test_ori_down_proj():
 
         answer = extract_yes_no_answer(response_raw)
         print(response_raw, answer)
-        model_name = "linear-debug-3000"
+        model_name = ckpt_path.split("/")[-1]
         os.makedirs(f"evaluation/understanding/mme/{model_name}", exist_ok=True)
         with open(f"evaluation/understanding/mme/{model_name}/{category}.txt", "a") as f:
             line = f"{img_name}\t{question}\t{gt_answer}\t{answer}\n"
@@ -86,7 +90,8 @@ def img_describe():
     internvl = InternVLChatModel.from_pretrained(internvl_path)
     internvl = add_down_proj(internvl, config.model)
     
-    ckpt_path = "/data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug/internvl-down_proj-8000"
+    ckpt_path = "/data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug/internvl-down_proj-45000"
+    print(ckpt_path)
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     m, u = internvl.load_state_dict(ckpt, strict=False)
     print(f"missing keys: {m}, unmatched keys: {u}")    
@@ -95,7 +100,7 @@ def img_describe():
     tokenizer = AutoTokenizer.from_pretrained(internvl_path, trust_remote_code=True, use_fast=False)
 
     # ---------- chat with the model ----------
-    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/jobs.jpg"
+    image = "/data/phd/jinjiachun/codebase/ideal-octo-spork/asset/internet/messi_1.jpg"
     pixel_values = load_image(image, max_num=12).to(torch.bfloat16).cuda()
 
     question_prime = "<image>\n" + "Describe this image in great detail."

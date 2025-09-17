@@ -1,0 +1,9 @@
+model:
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B
+  high_dim: 4096
+  down_dim: 16
+  diffhead:
+    x_dim: 16
+    hidden_size: 512
+    z_dim: 1024
+    depth: 16
