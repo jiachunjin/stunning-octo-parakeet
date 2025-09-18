@@ -18,7 +18,7 @@ import argparse
 from einops import rearrange
 from omegaconf import OmegaConf
 from diffusers import DDPMScheduler
-
+from transformers import AutoTokenizer
 
 from util.trainer import Trainer
 from util.dataloader import get_llava_mix665k_dataloader, get_blip3o_dataloader
@@ -112,6 +112,9 @@ class MyTrainer(Trainer):
         self.teacher = teacher
         self.model = internvl
 
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.internvl_path, trust_remote_code=True, use_fast=False)
+        self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
+
     def _load_dataloader(self):
         self.dataloader_und = get_llava_mix665k_dataloader()
         self.dataloader_gen = get_blip3o_dataloader(self.config.data.gen, self.accelerator)
@@ -183,13 +186,64 @@ class MyTrainer(Trainer):
 
                     loss_gen = torch.nn.functional.mse_loss(pred, target)
 
-                    # ---------- compute understanding distillation loss ----------
-                    # with torch.no_grad():
-                    #     vit_embeds_teacher = self.teacher.mlp1(vit_embeds) # (B, 256, d_llm)
-                    # vit_embeds_student = self.model.new_mlp1(self.model.down_proj(vit_embeds)) # (B, 256, 16)
+                    # ---------- compute understanding distillation loss ----------                    
+                    batch = next(self.dataloader_und)
+                    pixel_values = batch["pixel_values"].to(self.device, self.dtype)
+                    question = batch["question"]
+                    answer = batch["answer"]
 
-                    # ----- backward the total loss -----
-                    loss = loss_gen
+                    answer_length = answer.shape[1]
+                    input_ids = torch.cat([question, answer], dim=1).to(self.device, torch.int64)
+
+                    # construct input of the VLM
+                    with torch.no_grad():
+                        vit_embeds = self.teacher.vision_model(
+                            pixel_values         = pixel_values,
+                            output_hidden_states = False,
+                        return_dict=True).last_hidden_state[:, 1:, :]
+
+                        h = w = int(vit_embeds.shape[1] ** 0.5)
+                        vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
+                        vit_embeds = self.teacher.pixel_shuffle(vit_embeds, scale_factor=self.teacher.downsample_ratio)
+                        vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
+
+                        vit_embeds_teacher = self.teacher.mlp1(vit_embeds)
+
+                    vit_embeds_student = self.model.new_mlp1(self.model.down_proj(vit_embeds))
+
+                    input_embeds_teacher = self.teacher.language_model.get_input_embeddings()(input_ids)
+                    B, N, C = input_embeds_teacher.shape
+                    input_embeds_teacher = input_embeds_teacher.reshape(B * N, C)
+
+                    input_ids = input_ids.reshape(B * N)
+                    selected = (input_ids == self.img_context_token_id)
+                    assert selected.sum() != 0
+                    input_embeds_student = copy.deepcopy(input_embeds_teacher)
+                    input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(self.device)
+                    input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(self.device)
+
+                    input_embeds_student = input_embeds_student.reshape(B, N, C)
+                    input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
+
+                    logits_student = self.model.language_model(
+                        inputs_embeds        = input_embeds_student,
+                        output_hidden_states = True,
+                    ).logits[:, -answer_length-1:-1, :]
+
+                    logits_teacher = self.teacher.language_model(
+                        inputs_embeds        = input_embeds_teacher,
+                        output_hidden_states = True,
+                    ).logits[:, -answer_length-1:-1, :]
+
+                    # compute loss for the answer part
+                    logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
+                    logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher, dim=-1)
+                    kl_div = torch.nn.functional.kl_div(logits_student_log_softmax, logits_teacher_log_softmax, log_target=True, reduction='batchmean')
+
+                    loss_und = kl_div
+
+                    # ---------- backward the total loss ----------
+                    loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * loss_und
 
                     self.accelerator.backward(loss)
 
@@ -202,6 +256,8 @@ class MyTrainer(Trainer):
                         self.progress_bar.update(1)
                         logs = dict(
                             loss_gen = self.accelerator.gather(loss_gen.detach()).mean().item(),
+                            loss_und = self.accelerator.gather(loss_und.detach()).mean().item(),
+                            loss = self.accelerator.gather(loss.detach()).mean().item(),
                         )
                         self.accelerator.log(logs, step=self.global_step)
                         self.progress_bar.set_postfix(**logs)

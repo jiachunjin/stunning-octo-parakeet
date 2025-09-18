@@ -25,6 +25,9 @@ train:
   num_iter: 500000
   save_every: 5000
 
+  hp_loss_gen: 1.0
+  hp_loss_und: 1.0
+
 data:
   batch_size: &batch_size 4
   gen:
