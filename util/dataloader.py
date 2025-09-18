@@ -132,7 +132,7 @@ def get_blip3o_dataloader(config, accelerator):
     import torchvision.transforms as pth_transforms
     from model.internvl.conversation import get_conv_template
 
-    tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained("/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B", trust_remote_code=True, use_fast=False)
     IMG_START_TOKEN = "<img>"
 
     urls = []
