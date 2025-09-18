@@ -100,7 +100,6 @@ class MyTrainer(Trainer):
     def _load_models(self):
         internvl = InternVLChatModel.from_pretrained(self.config.model.internvl_path)
         teacher = copy.deepcopy(internvl)
-        teacher.requires_grad_(False)
 
         internvl = equip_internvl(internvl, self.config.model)
         if self.config.train.resume_path is not None:
@@ -108,6 +107,8 @@ class MyTrainer(Trainer):
             m, u = internvl.load_state_dict(ckpt, strict=False)
             print(f"missing keys: {m}, unmatched keys: {u}")
 
+        teacher.requires_grad_(False)
+        teacher = teacher.to(self.device, self.dtype).eval()
         self.teacher = teacher
         self.model = internvl
 
