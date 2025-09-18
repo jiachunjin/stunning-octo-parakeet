@@ -31,4 +31,4 @@ train:
 data:
   batch_size: 32
   num_workers: 8
-  max_seq_length: 2048
+  max_seq_length: 1024
