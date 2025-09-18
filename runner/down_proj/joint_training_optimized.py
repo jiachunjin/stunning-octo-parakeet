@@ -145,6 +145,8 @@ class MyTrainer(Trainer):
                     # 获取understanding batch，如果迭代器结束则重新创建
                     try:
                         batch_und = next(dataloader_und_iter)
+                        while batch_und is None:
+                            batch_und = next(dataloader_und_iter)
                     except StopIteration:
                         dataloader_und_iter = iter(self.dataloader_und)
                         batch_und = next(dataloader_und_iter)
@@ -159,7 +161,6 @@ class MyTrainer(Trainer):
                         (pixel_values_gen - imagenet_mean) / imagenet_std,
                         pixel_values_und
                     ], dim=0)
-                    print("all_pixel_values", all_pixel_values.shape)
                     
                     with torch.no_grad():
                         # 一次性提取所有视觉特征
@@ -182,8 +183,6 @@ class MyTrainer(Trainer):
                         
                         # 计算teacher的理解特征
                         vit_embeds_teacher = self.teacher.mlp1(vit_embeds_und)
-                        print("vit_embeds_gen", vit_embeds_gen.shape)
-                        print("vit_embeds_und", vit_embeds_und.shape)
                     
                     # ---------- 计算生成损失 ----------
                     input_ids_gen = batch_gen["input_ids"].to(self.device)
