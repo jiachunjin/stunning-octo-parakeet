@@ -9,7 +9,7 @@ model:
   num_tokens: 256
   num_heads: 16
   depth: 16
-  tune_llm: true
+  tune_llm: false
 # --------------------------------------------------
 train:
   root: /data/phd/jinjiachun/experiment

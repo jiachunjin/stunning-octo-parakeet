@@ -186,8 +186,12 @@ class MyTrainer(Trainer):
 
                     loss_gen = torch.nn.functional.mse_loss(pred, target)
 
-                    # ---------- compute understanding distillation loss ----------                    
-                    batch = next(self.dataloader_und)
+                    # ---------- compute understanding distillation loss ----------
+                    # 获取有效的batch，避免死循环
+                    batch = None
+                    for batch in self.dataloader_und:
+                        if batch is not None:
+                            break
                     pixel_values = batch["pixel_values"].to(self.device, self.dtype)
                     question = batch["question"]
                     answer = batch["answer"]
