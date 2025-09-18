@@ -140,7 +140,7 @@ def get_llava_mix665k_dataloader(config):
         if len(pixel_values) == 0:
             return None
         else:
-            pixel_values = torch.stack(pixel_values).squeeze(0)
+            pixel_values = torch.stack(pixel_values).squeeze(1)
             input_ids = torch.stack(input_ids)
             attention_mask = torch.stack(attention_mask)
             answer_mask = torch.stack(answer_mask)

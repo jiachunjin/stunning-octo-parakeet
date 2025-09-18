@@ -128,8 +128,6 @@ def main(args):
                     vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
                     vit_embeds = teacher.pixel_shuffle(vit_embeds, scale_factor=teacher.downsample_ratio)
                     vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
-                    print(vit_embeds.shape)
-                    exit(0)
 
                     vit_embeds_teacher = teacher.mlp1(vit_embeds)
 
@@ -148,6 +146,10 @@ def main(args):
 
                 input_embeds_student = input_embeds_student.reshape(B, N, C)
                 input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
+
+                print(pixel_values.shape)
+                print(input_embeds_student.shape)
+                exit(0)
 
                 logits_student = internvl.language_model(
                     inputs_embeds        = input_embeds_student,
