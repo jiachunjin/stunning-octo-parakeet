@@ -310,7 +310,7 @@ class MyTrainer(Trainer):
                                 answer_log_softmax_student,
                                 answer_log_softmax_teacher,
                                 log_target=True,
-                                reduction='sum'
+                                reduction='mean'
                             )
                             
                             kl_div_total += kl_div

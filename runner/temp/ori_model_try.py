@@ -103,16 +103,17 @@ def extract_yes_no_answer(response_raw):
 
 @torch.inference_mode()
 def test_mme():
-    device = torch.device("cuda")
+    device = torch.device("cuda:1")
     dtype = torch.bfloat16
     
     internvl_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
-    model_name = internvl_path.split("/")[-1]
+    model_name = internvl_path.split("/")[-1] + "resize_448"
+    print(model_name)
     internvl = InternVLChatModel.from_pretrained(internvl_path)
     internvl = internvl.to(device, dtype).eval()
 
     tokenizer = AutoTokenizer.from_pretrained(internvl_path, trust_remote_code=True, use_fast=False)
-    generation_config = dict(max_new_tokens=5, do_sample=False)
+    generation_config = dict(max_new_tokens=50, do_sample=False)
 
     data_files = {
         "test": "/data/phd/jinjiachun/dataset/benchmark/darkyarding/MME/data/test-*-of-*.parquet"
@@ -122,15 +123,17 @@ def test_mme():
     for i, data in enumerate(dataset["test"]):
         img_name = data["question_id"].split("/")[-1]
         category = data["category"]
-        image = data["image"].convert("RGB")
+        image = data["image"].convert("RGB").resize((448, 448))
         question = data["question"]
         gt_answer = data["answer"]
 
         pixel_values = load_image(image, max_num=12).to(torch.bfloat16).cuda()
+        print(pixel_values.shape)
 
         question_prime = '<image>\n' + question
         response_raw = internvl.chat(tokenizer, pixel_values, question_prime, generation_config)
         answer = extract_yes_no_answer(response_raw)
+        print(response_raw, answer)
         os.makedirs(f"evaluation/understanding/mme/{model_name}", exist_ok=True)
         with open(f"evaluation/understanding/mme/{model_name}/{category}.txt", "a") as f:
             line = f"{img_name}\t{question}\t{gt_answer}\t{answer}\n"

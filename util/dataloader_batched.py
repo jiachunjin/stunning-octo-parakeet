@@ -83,7 +83,7 @@ def get_llava_mix665k_dataloader_batched(batch_size=4, num_workers=4):
 
         # 处理图像数据
         # 假设所有图像具有相同的形状，直接stack
-        pixel_values = torch.stack(pixel_values_list)  # (B, C, H, W) 或 (B, num_patches, C, H, W)
+        pixel_values = torch.stack(pixel_values_list).squeeze(dim=1)  # (B, C, H, W) 或 (B, num_patches, C, H, W)
 
         # 处理文本数据 - 使用padding
         # pad_sequence默认padding_value=0，我们需要使用tokenizer的pad_token_id
