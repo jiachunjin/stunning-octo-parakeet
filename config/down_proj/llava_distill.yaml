@@ -13,7 +13,7 @@ model:
 # --------------------------------------------------
 train:
   root: /data/phd/jinjiachun/experiment
-  resume_path: null
+  resume_path: /data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug/100000
   global_step: 0
 
   exp_name: &exp_name down_proj
@@ -22,13 +22,13 @@ train:
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: swanlab
 
   lr: 1e-4
   num_iter: 500000
   save_every: 2000
 
 data:
-  batch_size: 32
+  batch_size: 16
   num_workers: 8
   max_seq_length: 1024

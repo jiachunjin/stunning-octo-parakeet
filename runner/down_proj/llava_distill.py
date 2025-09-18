@@ -150,9 +150,6 @@ def main(args):
                 input_embeds_student = input_embeds_student.reshape(B, N, C)
                 input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
 
-                print(pixel_values.shape)
-                print(input_embeds_student.shape)
-
                 logits_student = internvl.language_model(
                     inputs_embeds        = input_embeds_student,
                     attention_mask       = attention_mask,
