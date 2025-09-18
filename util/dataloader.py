@@ -109,7 +109,7 @@ def get_llava_mix665k_dataloader(config):
             tokenizer_output = tokenizer(
                 query + answer,
                 return_tensors = "pt",
-                padding        = "max_length",
+                padding        = "longest",
                 padding_side   = "right",
                 truncation     = True,
                 max_length     = config.max_seq_length,
