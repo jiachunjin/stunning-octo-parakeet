@@ -66,8 +66,11 @@ def get_llava_mix665k_dataloader(config):
 
     def collate_fn(batch):
         pixel_values = []
-        questions = []
-        answers = []
+        input_ids = []
+        attention_mask = []
+        answer_mask = []
+        # questions = []
+        # answers = []
 
         for item in batch:
             if "image" not in item:
@@ -86,32 +89,67 @@ def get_llava_mix665k_dataloader(config):
             template.append_message(template.roles[0], question)
             template.append_message(template.roles[1], None)
             query = template.get_prompt()
-            print(query + answer)
-            exit(0)
+            # print(query + answer)
+            # exit(0)
 
             num_patches_list = [pixel_value.shape[0]] if pixel_value is not None else []
 
             image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * num_image_token * num_patches_list[0] + IMG_END_TOKEN
             query = query.replace("<image>", image_tokens, 1)
 
-            question_inputs = tokenizer(query, return_tensors="pt")
-            answer_inputs = tokenizer(answer, return_tensors="pt")
+            tokenizer_output = tokenizer(
+                query + answer,
+                return_tensors = "pt",
+                padding        = "max_length",
+                padding_side   = "right",
+                truncation     = True,
+                max_length     = config.max_seq_length,
+            )
 
+            input_ids_batch = tokenizer_output["input_ids"]
+            attention_mask_batch = tokenizer_output["attention_mask"]
+            
+            # 把input_ids属于answer的部分标记到answer_mask中
+            # 分别tokenize query和answer，确定答案的起始位置
+            query_tokens = tokenizer(query, return_tensors="pt", add_special_tokens=False)
+            answer_tokens = tokenizer(answer, return_tensors="pt", add_special_tokens=False)
+            
+            # 计算答案在完整序列中的起始位置
+            query_length = query_tokens["input_ids"].shape[1]
+            answer_length = answer_tokens["input_ids"].shape[1]
+            
+            # 创建answer_mask，初始化为False
+            answer_mask_batch = torch.zeros_like(input_ids_batch, dtype=torch.bool)
+            
+            # 在答案部分设置为True（考虑padding和截断的影响）
+            if query_length + answer_length <= config.max_seq_length:
+                # 如果没有被截断，直接设置答案部分
+                answer_mask_batch[0, query_length:query_length + answer_length] = True
+            else:
+                # 如果被截断，设置到序列末尾（排除padding）
+                actual_length = attention_mask_batch.sum().item()
+                answer_start = max(0, actual_length - answer_length)
+                answer_mask_batch[0, answer_start:actual_length] = True
+            
+            # 收集到列表中
             pixel_values.append(pixel_value)
-            questions.append(question_inputs["input_ids"][0])
-            answers.append(answer_inputs["input_ids"][0])
+            input_ids.append(input_ids_batch[0])  # 移除batch维度
+            attention_mask.append(attention_mask_batch[0])  # 移除batch维度
+            answer_mask.append(answer_mask_batch[0])  # 移除batch维度
 
         if len(pixel_values) == 0:
             return None
         else:
             pixel_values = torch.stack(pixel_values).squeeze(0)
-            questions = torch.stack(questions)
-            answers = torch.stack(answers)
+            input_ids = torch.stack(input_ids)
+            attention_mask = torch.stack(attention_mask)
+            answer_mask = torch.stack(answer_mask)
 
             return {
                 "pixel_values": pixel_values,
-                "question": questions,
-                "answer": answers,
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "answer_mask": answer_mask,
             }
 
 

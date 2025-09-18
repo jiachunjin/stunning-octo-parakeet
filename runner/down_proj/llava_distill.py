@@ -64,7 +64,7 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
     img_context_token_id = tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
 
-    dataloader = get_llava_mix665k_dataloader()
+    dataloader = get_llava_mix665k_dataloader(config.data)
 
     global_step = config.train.global_step if config.train.global_step is not None else 0
     params_to_learn = list(p for p in internvl.parameters() if p.requires_grad)
@@ -111,11 +111,11 @@ def main(args):
                 continue
             with accelerator.accumulate([internvl]):
                 pixel_values = batch["pixel_values"].to(dtype)
-                question = batch["question"]
-                answer = batch["answer"]
+                # question = batch["question"]
+                # answer = batch["answer"]
 
-                answer_length = answer.shape[1]
-                input_ids = torch.cat([question, answer], dim=1).to(torch.int64)
+                # answer_length = answer.shape[1]
+                # input_ids = torch.cat([question, answer], dim=1).to(torch.int64)
 
                 # construct input of the VLM
                 with torch.no_grad():
@@ -128,6 +128,8 @@ def main(args):
                     vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
                     vit_embeds = teacher.pixel_shuffle(vit_embeds, scale_factor=teacher.downsample_ratio)
                     vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
+                    print(vit_embeds.shape)
+                    exit(0)
 
                     vit_embeds_teacher = teacher.mlp1(vit_embeds)
 
