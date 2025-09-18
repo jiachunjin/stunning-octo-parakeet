@@ -163,7 +163,7 @@ class MyTrainer(Trainer):
                     img_embedding_gen = self.model.new_mlp2(x_clip_16) # (B, 256, d_llm)
                     text_embedding = self.model.language_model.get_input_embeddings()(input_ids).clone()
                     joint_embedding_t2i = torch.cat((text_embedding, img_embedding_gen), dim=1)
-                    img_mask = torch.ones((B, self.config.data.num_img_token), dtype=torch.bool, device=self.device)
+                    img_mask = torch.ones((B, self.config.data.gen.num_img_token), dtype=torch.bool, device=self.device)
                     attention_mask_t2i = torch.cat([attention_mask, img_mask], dim=1)
 
                     hidden_states = self.model.language_model(
@@ -172,7 +172,7 @@ class MyTrainer(Trainer):
                         output_hidden_states = True,
                     ).hidden_states[-1]
 
-                    hidden_state = hidden_states[:, -self.config.data.num_img_token-1:-1, :]
+                    hidden_state = hidden_states[:, -self.config.data.gen.num_img_token-1:-1, :]
                     z = rearrange(hidden_state, "B L D -> (B L) D")
                     gt_feature = rearrange(x_clip_16.detach(), "B L D -> (B L) D")
                     timesteps = torch.randint(0, 1000, (z.shape[0],), dtype=torch.int64, device=z.device)
