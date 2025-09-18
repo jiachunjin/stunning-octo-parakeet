@@ -22,7 +22,8 @@ from diffusers import DDPMScheduler
 from transformers import AutoTokenizer
 
 from util.trainer import Trainer
-from util.dataloader import get_llava_mix665k_dataloader, get_blip3o_dataloader
+from util.dataloader import get_blip3o_dataloader
+from util.dataloader_batched import get_llava_mix665k_dataloader_batched
 from model.internvl.modeling_internvl_chat import InternVLChatModel
 from model.diff_mlp import SimpleMLPAdaLN
 
@@ -109,7 +110,12 @@ class MyTrainer(Trainer):
         self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
 
     def _load_dataloader(self):
-        self.dataloader_und = get_llava_mix665k_dataloader()
+        # 使用批量数据加载器，从配置中获取batch size
+        batch_size_und = self.config.data.und.batch_size if hasattr(self.config.data.und, 'batch_size') else 4
+        self.dataloader_und = get_llava_mix665k_dataloader_batched(
+            batch_size=batch_size_und,
+            num_workers=4
+        )
         self.dataloader_gen = get_blip3o_dataloader(self.config.data.gen, self.accelerator)
     
     def train(self):
@@ -223,9 +229,12 @@ class MyTrainer(Trainer):
                     # ---------- 计算理解蒸馏损失 ----------
                     question = batch_und["question"]
                     answer = batch_und["answer"]
+                    question_attention_mask = batch_und["question_attention_mask"]
+                    answer_attention_mask = batch_und["answer_attention_mask"]
 
-                    answer_length = answer.shape[1]
+                    # 拼接question和answer
                     input_ids_und = torch.cat([question, answer], dim=1).to(self.device, torch.int64)
+                    attention_mask_und = torch.cat([question_attention_mask, answer_attention_mask], dim=1).to(self.device)
 
                     # 计算student的理解特征
                     vit_embeds_student = self.model.new_mlp1(self.model.down_proj(vit_embeds_und))
@@ -263,26 +272,52 @@ class MyTrainer(Trainer):
                     # 并行计算student和teacher的logits
                     logits_student = self.model.language_model(
                         inputs_embeds        = input_embeds_student,
+                        attention_mask       = attention_mask_und,
                         output_hidden_states = True,
-                    ).logits[:, -answer_length-1:-1, :]
+                    ).logits
 
                     with torch.no_grad():
                         logits_teacher = self.teacher.language_model(
                             inputs_embeds        = input_embeds_teacher,
+                            attention_mask       = attention_mask_und,
                             output_hidden_states = True,
-                        ).logits[:, -answer_length-1:-1, :]
+                        ).logits
 
-                    # 计算KL散度损失
-                    logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
-                    logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher.detach(), dim=-1)
-                    kl_div = torch.nn.functional.kl_div(
-                        logits_student_log_softmax, 
-                        logits_teacher_log_softmax, 
-                        log_target=True, 
-                        reduction='batchmean'
-                    )
-
-                    loss_und = kl_div
+                    # 计算KL散度损失 - 仅在答案部分
+                    # 获取答案部分的起始位置（question长度）
+                    question_lengths = question_attention_mask.sum(dim=1)  # (B,)
+                    answer_lengths = answer_attention_mask.sum(dim=1)      # (B,)
+                    
+                    # 初始化损失
+                    kl_div_total = 0.0
+                    valid_tokens = 0
+                    
+                    # 对每个样本单独处理，以正确定位答案部分
+                    for i in range(input_ids_und.shape[0]):
+                        q_len = question_lengths[i].item()
+                        a_len = answer_lengths[i].item()
+                        
+                        if a_len > 0:  # 确保有答案
+                            # 提取答案部分的logits (不包括最后一个token)
+                            answer_logits_student = logits_student[i, q_len:q_len+a_len-1, :]
+                            answer_logits_teacher = logits_teacher[i, q_len:q_len+a_len-1, :]
+                            
+                            # 计算该样本的KL散度
+                            answer_log_softmax_student = torch.nn.functional.log_softmax(answer_logits_student, dim=-1)
+                            answer_log_softmax_teacher = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
+                            
+                            kl_div = torch.nn.functional.kl_div(
+                                answer_log_softmax_student,
+                                answer_log_softmax_teacher,
+                                log_target=True,
+                                reduction='sum'
+                            )
+                            
+                            kl_div_total += kl_div
+                            valid_tokens += (a_len - 1)  # 答案长度减1（因为预测下一个token）
+                    
+                    # 平均KL散度
+                    loss_und = kl_div_total / max(valid_tokens, 1)
 
                     # ---------- 反向传播总损失 ----------
                     loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * loss_und
