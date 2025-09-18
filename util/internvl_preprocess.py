@@ -79,6 +79,7 @@ def load_image(image_file, input_size=448, max_num=12):
         except Exception as e:
             print(f"Error loading image {image_file}: {e}")
             return None
+    image = image.resize((input_size, input_size))
     transform = build_transform(input_size=input_size)
     images = dynamic_preprocess(image, image_size=input_size, use_thumbnail=True, max_num=max_num)
     pixel_values = [transform(image) for image in images]
