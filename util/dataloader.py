@@ -47,7 +47,7 @@ class LLaVAMix665K(torch.utils.data.Dataset):
             }
             return item
 
-def get_llava_mix665k_dataloader():
+def get_llava_mix665k_dataloader(config):
     from transformers import AutoTokenizer
     from util.internvl_preprocess import load_image
     from model.internvl.conversation import get_conv_template
@@ -86,6 +86,8 @@ def get_llava_mix665k_dataloader():
             template.append_message(template.roles[0], question)
             template.append_message(template.roles[1], None)
             query = template.get_prompt()
+            print(query + answer)
+            exit(0)
 
             num_patches_list = [pixel_value.shape[0]] if pixel_value is not None else []
 
@@ -115,9 +117,9 @@ def get_llava_mix665k_dataloader():
 
     dataloader = torch.utils.data.DataLoader(
         LLaVAMix665K(img_path, ann_path),
-        batch_size  = 1,
+        batch_size  = config.batch_size,
         shuffle     = True,
-        num_workers = 1,
+        num_workers = config.num_workers,
         pin_memory  = True,
         drop_last   = True,
         collate_fn  = collate_fn,
