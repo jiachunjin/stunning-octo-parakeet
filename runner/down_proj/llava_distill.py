@@ -40,6 +40,10 @@ def add_down_proj(internvl, config):
     internvl.new_mlp1 = new_mlp1
     internvl.new_mlp1.requires_grad_(True)
 
+    if getattr(config, "tune_llm", False):
+        internvl.language_model.requires_grad_(True)
+        print(f"tune_llm: True")
+
     return internvl
 
 def main(args):
@@ -170,7 +174,7 @@ def main(args):
                     global_step += 1
                     progress_bar.update(1)
                     logs = dict(
-                        kl_div = accelerator.gather(kl_div.detach()).mean().item(),
+                        loss_und = accelerator.gather(kl_div.detach()).mean().item(),
                     )
                     accelerator.log(logs, step=global_step)
                     progress_bar.set_postfix(**logs)
