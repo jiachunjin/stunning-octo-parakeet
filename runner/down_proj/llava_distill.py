@@ -111,6 +111,9 @@ def main(args):
                 continue
             with accelerator.accumulate([internvl]):
                 pixel_values = batch["pixel_values"].to(dtype)
+                input_ids = batch["input_ids"].to(torch.int64)
+                attention_mask = batch["attention_mask"].to(torch.bool)
+                answer_mask = batch["answer_mask"].to(torch.bool)
                 # question = batch["question"]
                 # answer = batch["answer"]
 
@@ -140,7 +143,7 @@ def main(args):
                 input_ids = input_ids.reshape(B * N)
                 selected = (input_ids == img_context_token_id)
                 assert selected.sum() != 0
-                input_embeds_student = copy.deepcopy(input_embeds_teacher)
+                input_embeds_student = input_embeds_teacher.clone()
                 input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(input_embeds_student.device)
                 input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
 
@@ -149,22 +152,29 @@ def main(args):
 
                 print(pixel_values.shape)
                 print(input_embeds_student.shape)
-                exit(0)
 
                 logits_student = internvl.language_model(
                     inputs_embeds        = input_embeds_student,
+                    attention_mask       = attention_mask,
                     output_hidden_states = True,
-                ).logits[:, -answer_length-1:-1, :]
+                ).logits
+                # 只取answer部分的logits出来
+                # 使用answer_mask来选择答案部分的logits
+                answer_logits_student = logits_student[answer_mask]
 
                 logits_teacher = teacher.language_model(
                     inputs_embeds        = input_embeds_teacher,
+                    attention_mask       = attention_mask,
                     output_hidden_states = True,
-                ).logits[:, -answer_length-1:-1, :]
+                ).logits
+                # 只取answer部分的logits出来
+                answer_logits_teacher = logits_teacher[answer_mask]
 
                 # compute loss for the answer part
-                logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
-                logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher, dim=-1)
-                kl_div = torch.nn.functional.kl_div(logits_student_log_softmax, logits_teacher_log_softmax, log_target=True, reduction='batchmean')
+                # 使用answer部分的logits计算KL散度
+                answer_logits_student_log_softmax = torch.nn.functional.log_softmax(answer_logits_student, dim=-1)
+                answer_logits_teacher_log_softmax = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
+                kl_div = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
                 loss = kl_div
 

@@ -97,6 +97,15 @@ def get_llava_mix665k_dataloader(config):
             image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * num_image_token * num_patches_list[0] + IMG_END_TOKEN
             query = query.replace("<image>", image_tokens, 1)
 
+            query_tokens = tokenizer(query, return_tensors="pt")
+            answer_tokens = tokenizer(answer, return_tensors="pt")
+
+            # input_ids = torch.cat([query_tokens["input_ids"], answer_tokens["input_ids"]], dim=1)
+            # # pad the input_ids to the max_seq_length
+            # input_ids = torch.nn.functional.pad(input_ids, (0, 0, 0, config.max_seq_length - input_ids.shape[1]), value=tokenizer.pad_token_id)
+            # attention_mask = torch.nn.functional.pad(query_tokens["attention_mask"], (0, 0, 0, config.max_seq_length - query_tokens["attention_mask"].shape[1]), value=0)
+            # answer_mask = torch.nn.functional.pad(answer_tokens["attention_mask"], (0, 0, 0, config.max_seq_length - answer_tokens["attention_mask"].shape[1]), value=0)
+
             tokenizer_output = tokenizer(
                 query + answer,
                 return_tensors = "pt",
@@ -109,12 +118,8 @@ def get_llava_mix665k_dataloader(config):
             input_ids_batch = tokenizer_output["input_ids"]
             attention_mask_batch = tokenizer_output["attention_mask"]
             
-            # 把input_ids属于answer的部分标记到answer_mask中
-            # 分别tokenize query和answer，确定答案的起始位置
-            query_tokens = tokenizer(query, return_tensors="pt", add_special_tokens=False)
-            answer_tokens = tokenizer(answer, return_tensors="pt", add_special_tokens=False)
-            
-            # 计算答案在完整序列中的起始位置
+            # answer_mask是指，在input_ids_batch中，属于answer的部分，为True
+            # 计算query和answer的长度
             query_length = query_tokens["input_ids"].shape[1]
             answer_length = answer_tokens["input_ids"].shape[1]
             
