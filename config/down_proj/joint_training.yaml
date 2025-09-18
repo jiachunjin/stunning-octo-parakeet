@@ -14,16 +14,26 @@ train:
   global_step: 0
 
   exp_name: &exp_name down_proj
-  wandb_proj: *exp_name
+  proj_name: *exp_name
   output_dir: 0917_joint_training
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: swanlab
 
   lr: 1e-4
   num_iter: 500000
   save_every: 5000
 
 data:
-  batch_size: 1
+  gen:
+    wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+    img_size: 448
+    cfg_drop_rate: 0.1
+    num_img_token: 256
+    max_seq_length: 512
+    buffer_size: 100
+    batch_size: 2
+    num_workers: 8
+  und:
+    batch_size: 1
