@@ -19,7 +19,7 @@ train:
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: swanlab
+  report_to: null
 
   lr: 1e-4
   num_iter: 500000
