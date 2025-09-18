@@ -113,7 +113,7 @@ class MyTrainer(Trainer):
 
     def _load_dataloader(self):
         self.dataloader_und = get_llava_mix665k_dataloader()
-        self.dataloader_gen = get_blip3o_dataloader(self.config, self.accelerator)
+        self.dataloader_gen = get_blip3o_dataloader(self.config.data.gen, self.accelerator)
     
     def train(self):
         train_scheduler = DDPMScheduler(
