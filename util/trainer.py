@@ -13,10 +13,6 @@ class Trainer:
         self.config = config
         self.accelerator, self.output_dir = get_accelerator(config)
         self.config.device_count = self.accelerator.num_processes
-
-        self._load_models()
-        self._load_optimizer()
-        self._load_dataloader()
         
         self.device = self.accelerator.device
         if self.accelerator.mixed_precision == "bf16":
@@ -34,6 +30,10 @@ class Trainer:
             desc    = "Steps",
             disable = not self.accelerator.is_local_main_process,
         )
+
+        self._load_models()
+        self._load_optimizer()
+        self._load_dataloader()
 
         if self.accelerator.is_main_process:
             self.accelerator.init_trackers(config.train.proj_name, config=flatten_dict(config))
