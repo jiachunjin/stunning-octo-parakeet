@@ -10,7 +10,7 @@ model:
 # --------------------------------------------------
 train:
   root: /data/phd/jinjiachun/experiment
-  resume_path: /data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug/internvl-down_proj-82000
+  resume_path: /data/phd/jinjiachun/experiment/down_proj/0916_llava_distill_linear_debug/internvl-down_proj-100000
   global_step: 0
 
   exp_name: &exp_name down_proj

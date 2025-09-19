@@ -228,7 +228,7 @@ class MyTrainer(Trainer):
                     input_embeds_student = input_embeds_student.reshape(B, N, C)
                     input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
 
-                    logits_student = self.internvl.language_model(
+                    logits_student = self.model.language_model(
                         inputs_embeds        = input_embeds_student,
                         attention_mask       = attention_mask,
                         output_hidden_states = True,
