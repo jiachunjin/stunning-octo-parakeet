@@ -116,7 +116,7 @@ class MyTrainer(Trainer):
         self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
 
     def _load_dataloader(self):
-        self.dataloader_und = get_llava_mix665k_dataloader()
+        self.dataloader_und = get_llava_mix665k_dataloader(self.config.data.und)
         self.dataloader_gen = get_blip3o_dataloader(self.config.data.gen, self.accelerator)
     
     def train(self):
@@ -192,14 +192,13 @@ class MyTrainer(Trainer):
                     for batch in self.dataloader_und:
                         if batch is not None:
                             break
-                    pixel_values = batch["pixel_values"].to(self.device, self.dtype)
-                    question = batch["question"]
-                    answer = batch["answer"]
+                    pixel_values = batch["pixel_values"].to(self.dtype)
+                    input_ids = batch["input_ids"].to(torch.int64)
+                    attention_mask = batch["attention_mask"].to(torch.bool)
+                    answer_mask = batch["answer_mask"].to(torch.bool)
 
-                    answer_length = answer.shape[1]
-                    input_ids = torch.cat([question, answer], dim=1).to(self.device, torch.int64)
+                    
 
-                    # construct input of the VLM
                     with torch.no_grad():
                         vit_embeds = self.teacher.vision_model(
                             pixel_values         = pixel_values,
@@ -222,27 +221,35 @@ class MyTrainer(Trainer):
                     input_ids = input_ids.reshape(B * N)
                     selected = (input_ids == self.img_context_token_id)
                     assert selected.sum() != 0
-                    input_embeds_student = copy.deepcopy(input_embeds_teacher)
-                    input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(self.device)
-                    input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(self.device)
+                    input_embeds_student = input_embeds_teacher.clone()
+                    input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(input_embeds_student.device)
+                    input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
 
                     input_embeds_student = input_embeds_student.reshape(B, N, C)
                     input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
 
-                    logits_student = self.model.language_model(
+                    logits_student = self.internvl.language_model(
                         inputs_embeds        = input_embeds_student,
+                        attention_mask       = attention_mask,
                         output_hidden_states = True,
-                    ).logits[:, -answer_length-1:-1, :]
+                    ).logits
+                    # 只取answer部分的logits出来
+                    # 使用answer_mask来选择答案部分的logits
+                    answer_logits_student = logits_student[answer_mask]
 
                     logits_teacher = self.teacher.language_model(
                         inputs_embeds        = input_embeds_teacher,
+                        attention_mask       = attention_mask,
                         output_hidden_states = True,
-                    ).logits[:, -answer_length-1:-1, :]
+                    ).logits
+                    # 只取answer部分的logits出来
+                    answer_logits_teacher = logits_teacher[answer_mask]
 
                     # compute loss for the answer part
-                    logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student, dim=-1)
-                    logits_teacher_log_softmax = torch.nn.functional.log_softmax(logits_teacher, dim=-1)
-                    kl_div = torch.nn.functional.kl_div(logits_student_log_softmax, logits_teacher_log_softmax, log_target=True, reduction='batchmean')
+                    # 使用answer部分的logits计算KL散度
+                    answer_logits_student_log_softmax = torch.nn.functional.log_softmax(answer_logits_student, dim=-1)
+                    answer_logits_teacher_log_softmax = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
+                    kl_div = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
                     loss_und = kl_div
 

@@ -40,4 +40,6 @@ data:
     batch_size: *batch_size
     num_workers: 8
   und:
-    batch_size: *batch_size  # 可以根据GPU内存调整，建议与gen的batch_size相同
+    batch_size: 4
+    num_workers: 8
+    max_seq_length: 1024
