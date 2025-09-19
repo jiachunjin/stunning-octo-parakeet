@@ -90,6 +90,9 @@ def equip_internvl(internvl, config):
     internvl.new_mlp1 = new_mlp1
     internvl.new_mlp2 = new_mlp2
     internvl.diff_head = diff_head
+    if getattr(config, "train_llm", False):
+        internvl.language_model.requires_grad_(True)
+        print(f"train_llm: True")
 
     return internvl
 
@@ -196,8 +199,6 @@ class MyTrainer(Trainer):
                     input_ids = batch["input_ids"].to(torch.int64)
                     attention_mask = batch["attention_mask"].to(torch.bool)
                     answer_mask = batch["answer_mask"].to(torch.bool)
-
-                    
 
                     with torch.no_grad():
                         vit_embeds = self.teacher.vision_model(

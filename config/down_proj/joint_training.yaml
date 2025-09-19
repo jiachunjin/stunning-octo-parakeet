@@ -7,6 +7,7 @@ model:
     hidden_size: 512
     z_dim: 1024
     depth: 16
+  train_llm: true
 # --------------------------------------------------
 train:
   root: /data/phd/jinjiachun/experiment
@@ -19,11 +20,11 @@ train:
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: swanlab
 
   lr: 1e-4
   num_iter: 500000
-  save_every: 5000
+  save_every: 1000
 
   hp_loss_gen: 1.0
   hp_loss_und: 1.0
@@ -40,6 +41,6 @@ data:
     batch_size: *batch_size
     num_workers: 8
   und:
-    batch_size: 4
+    batch_size: 8
     num_workers: 8
     max_seq_length: 1024
