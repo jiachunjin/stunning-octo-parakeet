@@ -30,7 +30,7 @@ train:
   hp_loss_und: 1.0
 
 data:
-  batch_size: &batch_size 16
+  batch_size: &batch_size 28
   gen:
     wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
     img_size: 448
@@ -41,6 +41,6 @@ data:
     batch_size: *batch_size
     num_workers: 8
   und:
-    batch_size: 8
+    batch_size: 14
     num_workers: 8
     max_seq_length: 1024
