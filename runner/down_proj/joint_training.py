@@ -147,14 +147,27 @@ class MyTrainer(Trainer):
             for batch in self.dataloader_gen:
                 with self.accelerator.accumulate(self.model):
                     self.model.train()
-                    # ---------- compute generation loss ----------
-                    pixel_values = batch["pixel_values"].to(self.device, self.dtype)
-                    input_ids = batch["input_ids"].to(self.device)
-                    attention_mask = batch["attention_mask"].to(self.device)
-                    x_intern = (pixel_values - imagenet_mean) / imagenet_std
+                    # ---------- load gen and und data ----------
+                    pixel_values_gen = batch["pixel_values"].to(self.device, self.dtype)
+                    input_ids_gen = batch["input_ids"].to(self.device)
+                    attention_mask_gen = batch["attention_mask"].to(self.device)
+                    x_intern = (pixel_values_gen - imagenet_mean) / imagenet_std
+
+                    # 获取有效的batch，避免死循环
+                    batch = None
+                    for batch in self.dataloader_und:
+                        if batch is not None:
+                            break
+                    pixel_values_und = batch["pixel_values"].to(self.dtype)
+                    input_ids_und = batch["input_ids"].to(torch.int64)
+                    attention_mask_und = batch["attention_mask"].to(torch.bool)
+                    answer_mask_und = batch["answer_mask"].to(torch.bool)
+
+                    # ---------- prepare clip features ----------
                     with torch.no_grad():
+                        B_gen = x_intern.shape[0]
                         vit_embeds = self.teacher.vision_model(
-                            pixel_values         = x_intern,
+                            pixel_values         = torch.cat([x_intern, pixel_values_und], dim=0),
                             output_hidden_states = False,
                         return_dict=True).last_hidden_state[:, 1:, :] # (B, 1024, 1024)
 
@@ -162,23 +175,47 @@ class MyTrainer(Trainer):
                         vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
                         vit_embeds = self.teacher.pixel_shuffle(vit_embeds, scale_factor=self.teacher.downsample_ratio)
                         vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1]) # (B, 256, 4096)
+                        # self.accelerator.print(vit_embeds.shape)
+                        vit_embeds_gen = vit_embeds[:B_gen]
+                        vit_embeds_und = vit_embeds[B_gen:]
 
-                    x_clip_16 = self.model.down_proj(vit_embeds)
+                        vit_embeds_teacher = self.teacher.mlp1(vit_embeds_und)
+                        # self.accelerator.print(vit_embeds_gen.shape, vit_embeds_und.shape)
+                        # exit(0)
+
+                    x_clip_16 = self.model.down_proj(vit_embeds_gen)
                     
-                    B = x_clip_16.shape[0]
+                    B_gen = x_clip_16.shape[0]
+                    B_und = vit_embeds_teacher.shape[0]
                     img_embedding_gen = self.model.new_mlp2(x_clip_16) # (B, 256, d_llm)
-                    text_embedding = self.model.language_model.get_input_embeddings()(input_ids).clone()
+                    text_embedding = self.model.language_model.get_input_embeddings()(input_ids_gen).clone()
                     joint_embedding_t2i = torch.cat((text_embedding, img_embedding_gen), dim=1)
-                    img_mask = torch.ones((B, self.config.data.gen.num_img_token), dtype=torch.bool, device=self.device)
-                    attention_mask_t2i = torch.cat([attention_mask, img_mask], dim=1)
+                    img_mask = torch.ones((B_gen, self.config.data.gen.num_img_token), dtype=torch.bool, device=self.device)
+                    attention_mask_t2i = torch.cat([attention_mask_gen, img_mask], dim=1)
 
-                    hidden_states = self.model.language_model(
-                        inputs_embeds        = joint_embedding_t2i,
-                        attention_mask       = attention_mask_t2i,
+                    vit_embeds_student = self.model.new_mlp1(self.model.down_proj(vit_embeds_und))
+                    input_embeds_teacher = self.teacher.language_model.get_input_embeddings()(input_ids_und)
+                    B, N, C = input_embeds_teacher.shape
+                    input_embeds_teacher = input_embeds_teacher.reshape(B * N, C)
+
+                    input_ids_und = input_ids_und.reshape(B * N)
+                    selected = (input_ids_und == self.img_context_token_id)
+                    assert selected.sum() != 0
+                    input_embeds_student = input_embeds_teacher.clone()
+                    input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(input_embeds_student.device)
+                    input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
+
+                    input_embeds_student = input_embeds_student.reshape(B, N, C)
+                    input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
+
+                    outputs = self.model.language_model(
+                        inputs_embeds        = torch.cat([joint_embedding_t2i, input_embeds_student, input_embeds_teacher], dim=0),
+                        attention_mask       = torch.cat([attention_mask_t2i, attention_mask_und, attention_mask_und], dim=0),
                         output_hidden_states = True,
-                    ).hidden_states[-1]
+                    )
 
-                    hidden_state = hidden_states[:, -self.config.data.gen.num_img_token-1:-1, :]
+                    # ---------- compute generation loss ----------
+                    hidden_state = outputs.hidden_states[-1][:B_gen, -self.config.data.gen.num_img_token-1:-1, :]
                     z = rearrange(hidden_state, "B L D -> (B L) D")
                     gt_feature = rearrange(x_clip_16.detach(), "B L D -> (B L) D")
                     timesteps = torch.randint(0, 1000, (z.shape[0],), dtype=torch.int64, device=z.device)
@@ -189,73 +226,32 @@ class MyTrainer(Trainer):
 
                     loss_gen = torch.nn.functional.mse_loss(pred, target)
 
-                    # ---------- compute understanding distillation loss ----------
-                    # 获取有效的batch，避免死循环
-                    batch = None
-                    for batch in self.dataloader_und:
-                        if batch is not None:
-                            break
-                    pixel_values = batch["pixel_values"].to(self.dtype)
-                    input_ids = batch["input_ids"].to(torch.int64)
-                    attention_mask = batch["attention_mask"].to(torch.bool)
-                    answer_mask = batch["answer_mask"].to(torch.bool)
-
-                    with torch.no_grad():
-                        vit_embeds = self.teacher.vision_model(
-                            pixel_values         = pixel_values,
-                            output_hidden_states = False,
-                        return_dict=True).last_hidden_state[:, 1:, :]
-
-                        h = w = int(vit_embeds.shape[1] ** 0.5)
-                        vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], h, w, -1)
-                        vit_embeds = self.teacher.pixel_shuffle(vit_embeds, scale_factor=self.teacher.downsample_ratio)
-                        vit_embeds = vit_embeds.reshape(vit_embeds.shape[0], -1, vit_embeds.shape[-1])
-
-                        vit_embeds_teacher = self.teacher.mlp1(vit_embeds)
-
-                    vit_embeds_student = self.model.new_mlp1(self.model.down_proj(vit_embeds))
-
-                    input_embeds_teacher = self.teacher.language_model.get_input_embeddings()(input_ids)
-                    B, N, C = input_embeds_teacher.shape
-                    input_embeds_teacher = input_embeds_teacher.reshape(B * N, C)
-
-                    input_ids = input_ids.reshape(B * N)
-                    selected = (input_ids == self.img_context_token_id)
-                    assert selected.sum() != 0
-                    input_embeds_student = input_embeds_teacher.clone()
-                    input_embeds_student[selected] = vit_embeds_student.reshape(-1, C).to(input_embeds_student.device)
-                    input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
-
-                    input_embeds_student = input_embeds_student.reshape(B, N, C)
-                    input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
-
-                    logits_student = self.model.language_model(
-                        inputs_embeds        = input_embeds_student,
-                        attention_mask       = attention_mask,
-                        output_hidden_states = True,
-                    ).logits
-                    # 只取answer部分的logits出来
-                    # 使用answer_mask来选择答案部分的logits
-                    answer_logits_student = logits_student[answer_mask]
+                    # ---------- compute distillation loss for low dim clip ----------
+                    logits_student = outputs.logits[B_gen:B_gen+B_und]
+                    answer_logits_student = logits_student[answer_mask_und]
 
                     logits_teacher = self.teacher.language_model(
                         inputs_embeds        = input_embeds_teacher,
-                        attention_mask       = attention_mask,
+                        attention_mask       = attention_mask_und,
                         output_hidden_states = True,
                     ).logits
-                    # 只取answer部分的logits出来
-                    answer_logits_teacher = logits_teacher[answer_mask]
 
-                    # compute loss for the answer part
-                    # 使用answer部分的logits计算KL散度
+                    answer_logits_teacher = logits_teacher[answer_mask_und]
                     answer_logits_student_log_softmax = torch.nn.functional.log_softmax(answer_logits_student, dim=-1)
                     answer_logits_teacher_log_softmax = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
                     kl_div = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
                     loss_und = kl_div
 
+                    # ---------- compute distillation loss for high dim clip ----------
+                    logits_student_original_clip = outputs.logits[B_gen+B_und:][answer_mask_und]
+                    answer_logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student_original_clip, dim=-1)
+                    kl_div_original_clip = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
+                    
+                    loss_und_ori = kl_div_original_clip
+
                     # ---------- backward the total loss ----------
-                    loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * loss_und
+                    loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * loss_und + self.config.train.hp_loss_und_ori * loss_und_ori
 
                     self.accelerator.backward(loss)
 
@@ -269,6 +265,7 @@ class MyTrainer(Trainer):
                         logs = dict(
                             loss_gen = self.accelerator.gather(loss_gen.detach()).mean().item(),
                             loss_und = self.accelerator.gather(loss_und.detach()).mean().item(),
+                            loss_und_ori = self.accelerator.gather(loss_und_ori.detach()).mean().item(),
                             loss = self.accelerator.gather(loss.detach()).mean().item(),
                         )
                         self.accelerator.log(logs, step=self.global_step)
