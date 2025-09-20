@@ -7,7 +7,7 @@ model:
     hidden_size: 512
     z_dim: 1024
     depth: 16
-  train_llm: true
+  train_llm: false
 # --------------------------------------------------
 train:
   root: /data/phd/jinjiachun/experiment
@@ -16,7 +16,7 @@ train:
 
   exp_name: &exp_name down_proj
   proj_name: *exp_name
-  output_dir: 0917_joint_training
+  output_dir: 0917_joint_training_llm_off
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1

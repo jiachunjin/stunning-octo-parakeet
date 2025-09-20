@@ -209,9 +209,12 @@ class MyTrainer(Trainer):
                     input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
 
                     outputs = self.model.language_model(
-                        inputs_embeds        = torch.cat([joint_embedding_t2i, input_embeds_student, input_embeds_teacher], dim=0),
-                        attention_mask       = torch.cat([attention_mask_t2i, attention_mask_und, attention_mask_und], dim=0),
+                        inputs_embeds        = torch.cat([joint_embedding_t2i, input_embeds_student], dim=0),
+                        attention_mask       = torch.cat([attention_mask_t2i, attention_mask_und], dim=0),
                         output_hidden_states = True,
+                        # inputs_embeds        = torch.cat([joint_embedding_t2i, input_embeds_student, input_embeds_teacher], dim=0),
+                        # attention_mask       = torch.cat([attention_mask_t2i, attention_mask_und, attention_mask_und], dim=0),
+                        # output_hidden_states = True,
                     )
 
                     # ---------- compute generation loss ----------
@@ -244,14 +247,15 @@ class MyTrainer(Trainer):
                     loss_und = kl_div
 
                     # ---------- compute distillation loss for high dim clip ----------
-                    logits_student_original_clip = outputs.logits[B_gen+B_und:][answer_mask_und]
-                    answer_logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student_original_clip, dim=-1)
-                    kl_div_original_clip = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
+                    # logits_student_original_clip = outputs.logits[B_gen+B_und:][answer_mask_und]
+                    # answer_logits_student_log_softmax = torch.nn.functional.log_softmax(logits_student_original_clip, dim=-1)
+                    # kl_div_original_clip = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
                     
-                    loss_und_ori = kl_div_original_clip
+                    # loss_und_ori = kl_div_original_clip
 
                     # ---------- backward the total loss ----------
-                    loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * loss_und + self.config.train.hp_loss_und_ori * loss_und_ori
+                    # loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * loss_und + self.config.train.hp_loss_und_ori * loss_und_ori
+                    loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * loss_und
 
                     self.accelerator.backward(loss)
 
@@ -265,7 +269,7 @@ class MyTrainer(Trainer):
                         logs = dict(
                             loss_gen = self.accelerator.gather(loss_gen.detach()).mean().item(),
                             loss_und = self.accelerator.gather(loss_und.detach()).mean().item(),
-                            loss_und_ori = self.accelerator.gather(loss_und_ori.detach()).mean().item(),
+                            # loss_und_ori = self.accelerator.gather(loss_und_ori.detach()).mean().item(),
                             loss = self.accelerator.gather(loss.detach()).mean().item(),
                         )
                         self.accelerator.log(logs, step=self.global_step)
