@@ -4,7 +4,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 
 from model.internvl.modeling_internvl_chat import InternVLChatModel
-from runner.pos.joint_proj import intern_add_diffhead_projector
 from omegaconf import OmegaConf
 import os
 import torch
@@ -12,8 +11,6 @@ from diffusers import AutoencoderKL, DDIMScheduler
 from model.internvl.conversation import get_conv_template
 from transformers import AutoTokenizer
 from tqdm import tqdm, trange
-from diffusers import FlowMatchEulerDiscreteScheduler
-from runner.mmdit.train_basic_sd3 import sample_sd3_5
 
 sample_scheduler = DDIMScheduler(
     beta_schedule          = "scaled_linear",
@@ -48,7 +45,7 @@ def diff_generate(feature, diff_head):
 
 @torch.no_grad()
 def sample():
-    from runner.down_proj.llava_distill import add_down_proj
+    from runner.down_proj.joint_training import equip_internvl
     # exp_dir = "/data/phd/jinjiachun/experiment/pos/0908_both_task"
     exp_dir = "/data/phd/jinjiachun/experiment/down_proj/0917_joint_training_llm_off"
 
@@ -64,7 +61,7 @@ def sample():
     tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
 
     internvl = InternVLChatModel.from_pretrained(config.model.internvl_path)
-    internvl = add_down_proj(internvl, config.model)
+    internvl = equip_internvl(internvl, config.model)
 
     ckpt_path = os.path.join(exp_dir, f"internvl-down_proj-{step}")
     
@@ -85,15 +82,11 @@ def sample():
     cfg_scale = 3
 
     for idx, prompt_txt in enumerate(prompts):
-        if config.data.use_template:
-            template = get_conv_template("internvl2_5")
-            prompt = f"Generate an image: {prompt_txt}"
-            template.append_message(template.roles[0], prompt)
-            template.append_message(template.roles[1], None)
-            prompt = template.get_prompt() + IMG_START_TOKEN
-
-        else:
-            prompt = f"Generate an image: {prompt_txt}" + IMG_START_TOKEN
+        template = get_conv_template("internvl2_5")
+        prompt = f"Generate an image: {prompt_txt}"
+        template.append_message(template.roles[0], prompt)
+        template.append_message(template.roles[1], None)
+        prompt = template.get_prompt() + IMG_START_TOKEN
 
         print(prompt)
 
@@ -133,11 +126,21 @@ def sample():
             z = hidden_states[:, -1, :]
 
             next_token = diff_generate(z, internvl.diff_head)
-            img_embeds = internvl.clip_projector(next_token)
+            img_embeds = internvl.new_mlp2(next_token)
 
             generated_tokens[:, i] = next_token
 
         print(generated_tokens.shape)
+
+
+        tokenizer = AutoTokenizer.from_pretrained(config.model.internvl_path, trust_remote_code=True, use_fast=False)
+        generation_config = dict(max_new_tokens=1024, do_sample=True)
+
+        # for i in range(clip_features.shape[0]):
+        visual_feature = internvl.new_mlp1(generated_tokens)
+        question = '<image>\nPlease describe the image in detail.'
+        response = internvl.chat_with_visual_feature(tokenizer, visual_feature, question, generation_config)
+        print(f'User: {question}\nAssistant: {response}')
 
 if __name__ == "__main__":
     sample()
