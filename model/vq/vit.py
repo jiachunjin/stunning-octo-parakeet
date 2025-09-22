@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model.vq.vit_basic import Block, FeedForward
+from model.vq.vit_basic import Block, precompute_freqs_cis_2d
 
 
 class ViT(nn.Module):
@@ -34,3 +34,11 @@ class ViT(nn.Module):
         x = self.output_proj(x)
 
         return x
+
+    def fetch_pos(self, height, width, device):
+        if (height, width) in self.precompute_pos:
+            return self.precompute_pos[(height, width)].to(device)
+        else:
+            pos = precompute_freqs_cis_2d(self.hidden_size // self.num_heads, height, width).to(device)
+            self.precompute_pos[(height, width)] = pos
+            return pos
