@@ -3,6 +3,7 @@ model:
   input_dim: 4096
   down_dim: 16
   llm_hidden_size: 1024
+  tune_llm: False
 
 # --------------------------------------------------
 train:

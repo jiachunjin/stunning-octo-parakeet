@@ -15,7 +15,16 @@ from util.dataloader import get_llava_mix665k_dataloader
 from model.vq.lfq import LFQ
 
 def add_vq(internvl, config):
+    if config.model.tune_llm:
+        internvl.language_model.requires_grad_(True)
+        print(f"tune_llm: True")
+    else:
+        internvl.language_model.requires_grad_(False)
+        print(f"tune_llm: False")
+
+    internvl.requires_grad_(False)
     lfq = LFQ(config)
+    num_params = sum(p.numel() for p in lfq.parameters() if p.requires_grad)
     lfq.requires_grad_(True)
     internvl.lfq = lfq
 
@@ -27,6 +36,7 @@ class MyTrainer(Trainer):
 
     def _load_models(self):
         internvl = InternVLChatModel.from_pretrained(self.config.model.internvl_path)
+        internvl.requires_grad_(False)
         teacher = copy.deepcopy(internvl)
         internvl = add_vq(internvl, self.config.model)
         if self.config.train.resume_path is not None:

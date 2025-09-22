@@ -17,8 +17,9 @@ class LFQ(nn.Module):
         """
         x: (B, 256, 4096)
         """
-        x = self.down_proj(x) > 0 # (B, 256, d), binary
-        code = x * 2 - 1 # (B, 256, d), -1 or 1
+        x_binary = self.down_proj(x) > 0 # (B, 256, d), binary
+        code = x_binary * 2 - 1 # (B, 256, d), -1 or 1
+        code = code.to(x.dtype)
         x_vq = self.up_proj(code) # (B, 256, llm_hidden_size)
 
         return x_vq, code
