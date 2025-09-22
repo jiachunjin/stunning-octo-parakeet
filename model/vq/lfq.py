@@ -25,11 +25,12 @@ class LFQ(nn.Module):
         return x_vq, code
 
 
+from model.vq.vit import ViT
 class LFQ_transformer(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.down_proj = nn.Linear(config.input_dim, config.down_dim, bias=True)
+        self.down_proj = ViT(config)
         self.up_proj = nn.Sequential(
             nn.Linear(config.down_dim, config.llm_hidden_size, bias=True),
             nn.GELU(),

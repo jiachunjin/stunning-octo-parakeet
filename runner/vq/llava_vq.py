@@ -12,7 +12,7 @@ from model.internvl.modeling_internvl_chat import InternVLChatModel
 from util.trainer import Trainer
 from util.dataloader import get_llava_mix665k_dataloader
 
-from model.vq.lfq import LFQ
+from model.vq.lfq import LFQ, LFQ_transformer
 
 def add_vq(internvl, config):
     if config.tune_llm:
@@ -23,8 +23,14 @@ def add_vq(internvl, config):
         print(f"tune_llm: False")
 
     internvl.requires_grad_(False)
-    lfq = LFQ(config)
+    if getattr(config, "down_proj_type", "linear") == "linear":
+        lfq = LFQ(config)
+    elif getattr(config, "down_proj_type", "linear") == "transformer":
+        lfq = LFQ_transformer(config)
+    else:
+        raise ValueError(f"Invalid down_proj_type: {config.down_proj_type}")
     num_params = sum(p.numel() for p in lfq.parameters() if p.requires_grad)
+    print(f"lfq 可训练参数量: {num_params}")
     lfq.requires_grad_(True)
     internvl.lfq = lfq
 
