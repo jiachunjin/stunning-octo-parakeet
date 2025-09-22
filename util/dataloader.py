@@ -129,13 +129,10 @@ def get_llava_mix665k_dataloader(config):
             # 在答案部分设置为True（考虑padding和截断的影响）
             if query_length + answer_length <= config.max_seq_length:
                 # 如果没有被截断，直接设置答案部分
-                answer_mask_batch[0, query_length:query_length + answer_length] = True
+                answer_mask_batch[0, query_length - 1:query_length + answer_length - 1] = True
             else:
-                # 如果被截断，设置到序列末尾（排除padding）
-                actual_length = attention_mask_batch.sum().item()
-                answer_start = max(0, actual_length - answer_length)
-                answer_mask_batch[0, answer_start:actual_length] = True
-            
+                continue
+
             # 收集到列表中
             pixel_values.append(pixel_value)
             input_ids.append(input_ids_batch[0])  # 移除batch维度
