@@ -1,0 +1,30 @@
+model:
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B
+  input_dim: 4096
+  down_dim: 16
+  llm_hidden_size: 1024
+
+# --------------------------------------------------
+train:
+  root: /data/phd/jinjiachun/experiment
+  resume_path: null
+  global_step: 0
+
+  exp_name: &exp_name vq_llava_distill
+  proj_name: *exp_name
+  output_dir: 0922_llava_lfq_d16
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 100000
+  save_every: 2000
+
+  hp_loss_und: 1.0
+
+data:
+  batch_size: 8
+  num_workers: 1
+  max_seq_length: 512
