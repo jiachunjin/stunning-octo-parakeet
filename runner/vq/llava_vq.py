@@ -75,7 +75,6 @@ class MyTrainer(Trainer):
 
                     # get visual feature
                     vit_feature = self.model.get_vit_feature(pixel_values_und)
-                    print("vit_feature shape: ", vit_feature.shape)
                     x_vq, code = self.model.lfq(vit_feature)
                     vit_embeds_teacher = self.teacher.mlp1(vit_feature)
                     
