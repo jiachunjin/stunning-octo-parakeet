@@ -15,7 +15,7 @@ from util.dataloader import get_llava_mix665k_dataloader
 from model.vq.lfq import LFQ
 
 def add_vq(internvl, config):
-    if config.model.tune_llm:
+    if config.tune_llm:
         internvl.language_model.requires_grad_(True)
         print(f"tune_llm: True")
     else:
