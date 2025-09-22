@@ -43,7 +43,7 @@ def img_describe():
     vit_feature = internvl.get_vit_feature(pixel_values)
     print(pixel_values.shape, vit_feature.shape)
 
-    visual_features = internvl.lfq(vit_feature)
+    visual_features, code = internvl.lfq(vit_feature)
 
     generation_config["visual_features"] = visual_features
 
