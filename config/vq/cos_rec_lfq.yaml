@@ -21,7 +21,7 @@ train:
   resume_path: null
   global_step: 0
 
-  exp_name: &exp_name vq_llava_distill
+  exp_name: &exp_name vq_cosine_rec
   proj_name: *exp_name
   output_dir: 0923_lfq_cosine
   logging_dir: logs
@@ -40,6 +40,6 @@ data:
   cfg_drop_rate: 0.1
   num_img_token: 256
   max_seq_length: 512
-  buffer_size: 10000
-  batch_size: *batch_size
+  buffer_size: 10
+  batch_size: 32
   num_workers: 8

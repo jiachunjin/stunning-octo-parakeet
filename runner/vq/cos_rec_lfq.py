@@ -47,10 +47,37 @@ class MyTrainer(Trainer):
                     x_recon, code = self.model(vit_feature)
 
                     # compute cosine similarity between x_recon and x
-                    cosine_similarity = torch.nn.functional.cosine_similarity(x_recon, x, dim=1)
-                    print(cosine_similarity.shape)
+                    cosine_similarity = torch.nn.functional.cosine_similarity(vit_feature, x_recon, dim=-1)
+                    
+                    loss = 1 - cosine_similarity.mean()
 
+                    if self.accelerator.sync_gradients:
+                        self.accelerator.clip_grad_norm_(self.params_to_learn, 1.0)
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
 
+                        self.global_step += 1
+                        self.progress_bar.update(1)
+                        logs = dict(
+                            loss_cosine = self.accelerator.gather(loss.detach()).mean().item(),
+                        )
+                        self.accelerator.log(logs, step=self.global_step)
+                        self.progress_bar.set_postfix(**logs)
+
+                    if self.global_step > 0 and self.global_step % self.config.train.save_every == 0 and self.accelerator.is_main_process:
+                        self.model.eval()
+                        state_dict = self.accelerator.unwrap_model(self.model).state_dict()
+                        save_path = os.path.join(self.output_dir, f"autoencoder-{self.config.train.exp_name}-{self.global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"autoencoder saved to {save_path}")
+
+                    self.accelerator.wait_for_everyone()
+
+            self.epoch += 1
+            self.accelerator.print(f"epoch {self.epoch}: finished")
+            self.accelerator.log({"epoch": self.epoch}, step=self.global_step)
+
+        self.accelerator.end_training()
 
 def main(args):
     config = OmegaConf.load(args.config)
