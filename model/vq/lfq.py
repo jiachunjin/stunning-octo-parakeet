@@ -22,7 +22,6 @@ class LFQ(nn.Module):
         p_ = (p > 0.5).to(x.dtype)
         feature_bin = p + (p_ - p).detach()
         # code = x_binary * 2 - 1 # (B, 256, d), -1 or 1
-        code = code.to(x.dtype)
         x_vq = self.up_proj(feature_bin) # (B, 256, llm_hidden_size)
 
         return x_vq, p_
