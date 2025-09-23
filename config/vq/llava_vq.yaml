@@ -13,7 +13,7 @@ train:
 
   exp_name: &exp_name vq_llava_distill
   proj_name: *exp_name
-  output_dir: 0922_llava_lfq_d16
+  output_dir: 0923_llava_lfq_d16_debug
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1

@@ -17,12 +17,15 @@ class LFQ(nn.Module):
         """
         x: (B, 256, 4096)
         """
-        x_binary = self.down_proj(x) > 0 # (B, 256, d), binary
-        code = x_binary * 2 - 1 # (B, 256, d), -1 or 1
+        feature = self.down_proj(x)# (B, 256, d)
+        p = torch.sigmoid(feature)
+        p_ = (p > 0.5).to(x.dtype)
+        feature_bin = p + (p_ - p).detach()
+        # code = x_binary * 2 - 1 # (B, 256, d), -1 or 1
         code = code.to(x.dtype)
-        x_vq = self.up_proj(code) # (B, 256, llm_hidden_size)
+        x_vq = self.up_proj(feature_bin) # (B, 256, llm_hidden_size)
 
-        return x_vq, code
+        return x_vq, p_
 
 
 from model.vq.vit import ViT
@@ -41,6 +44,7 @@ class LFQ_transformer(nn.Module):
         """
         x: (B, 256, 4096)
         """
+        raise NotImplementedError
         x_binary = self.down_proj(x) > 0 # (B, 256, d), binary
         code = x_binary * 2 - 1 # (B, 256, d), -1 or 1
         code = code.to(x.dtype)
