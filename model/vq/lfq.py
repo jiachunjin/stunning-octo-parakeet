@@ -63,7 +63,7 @@ class LFQ_autoencoder(nn.Module):
         code = x_binary * 2 - 1 # (B, 256, 16), -1 or 1
         code = code.to(x.dtype)
 
-        x_recon = self.decoder(code) # (B, 256, 4096)
+        x_recon = self.decoder(self.encoder(x)) # (B, 256, 4096)
 
         return x_recon, code
 
