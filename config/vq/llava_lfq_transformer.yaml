@@ -2,7 +2,7 @@ model:
   internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B
   input_dim: 4096
   down_proj_type: transformer
-  down_dim: 16
+  output_dim: 16
   hidden_size: 1024
   depth: 16
   num_heads: 16

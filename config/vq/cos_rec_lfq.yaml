@@ -1,0 +1,26 @@
+model:
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B
+  encoder:
+    input_dim: 4096
+    output_dim: 16
+    hidden_size: 1024
+    depth: 16
+    num_heads: 16
+    grid_size: 16
+  decoder:
+    input_dim: 16
+    output_dim: 4096
+    hidden_size: 1024
+    depth: 16
+    num_heads: 16
+    grid_size: 16
+
+data:
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+  img_size: 448
+  cfg_drop_rate: 0.1
+  num_img_token: 256
+  max_seq_length: 512
+  buffer_size: 10000
+  batch_size: *batch_size
+  num_workers: 8

@@ -17,7 +17,7 @@ class ViT(nn.Module):
         self.norm1 = nn.LayerNorm(config.hidden_size)
         self.blocks = nn.ModuleList([Block(config.hidden_size, config.num_heads) for _ in range(config.depth)])
         self.norm2 = nn.LayerNorm(config.hidden_size)
-        self.output_proj = nn.Linear(config.hidden_size, config.down_dim)
+        self.output_proj = nn.Linear(config.hidden_size, config.output_dim)
 
     def forward(self, x):
         """
