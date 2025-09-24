@@ -210,7 +210,7 @@ class MyTrainer(Trainer):
                     # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
 
                     # ========== compute generation cross entropy loss ==========
-                    fsq_code = binary_to_token_id(code_gen, self.model.lfq_start_token_id, self.model.config.down_proj.output_dim) # (B, 256)
+                    fsq_code = binary_to_token_id(code_gen, self.model.lfq_start_token_id, 16) # (B, 256)
                     input_ids_t2i = torch.cat([input_ids_gen, fsq_code], dim=1)
                     embedding_t2i = self.model.language_model.get_input_embeddings()(input_ids_t2i).clone() # (B, 512, llm_hidden_size)
                     clip_logits = self.model.language_model(
