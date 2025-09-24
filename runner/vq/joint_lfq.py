@@ -28,9 +28,9 @@ def equip_internvl(internvl, config):
     
     # add transformer vq
     lfq = LFQ_transformer(config.down_proj)
+    lfq.requires_grad_(True)
     num_params = sum(p.numel() for p in lfq.parameters() if p.requires_grad)
     print(f"lfq 可训练参数量: {num_params}")
-    lfq.requires_grad_(True)
     internvl.lfq = lfq
     
     # 保存LFQ token信息
@@ -67,7 +67,7 @@ class MyTrainer(Trainer):
             m, u = internvl.load_state_dict(ckpt, strict=False)
             print(f"missing keys: {m}, unmatched keys: {u}")
 
-        self.teacher = teacher
+        self.teacher = teacher.to(self.device, self.dtype).eval()
         self.model = internvl
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.internvl_path, trust_remote_code=True, use_fast=False)
         self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
@@ -132,10 +132,42 @@ class MyTrainer(Trainer):
                     # ---------- get vit features ----------
                     with torch.no_grad():
                         vit_features = self.model.get_vit_feature(torch.cat([x_gen, x_und], dim=0))
-                        vit_features_gen = vit_features[:B_gen]
-                        vit_features_und = vit_features[B_gen:]
 
-                    self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
+                    x_vq, code = self.model.lfq(vit_features)
+                    x_vq_gen = x_vq[:B_gen]
+                    x_vq_und = x_vq[B_gen:]
+                    vit_features_gen = vit_features[:B_gen]
+                    vit_features_und = vit_features[B_gen:]
+
+                    # ---------- understanding distillation ----------
+                    vit_embeds_teacher = self.teacher.mlp1(vit_features_und)
+                    vit_embeds_student = self.model.mlp1(x_vq_und)
+                    # build input embeddings for teacher and model
+                    input_embeds_teacher = self.teacher.language_model.get_input_embeddings()(input_ids_und)
+                    B, N, C = input_embeds_teacher.shape
+                    input_embeds_teacher = input_embeds_teacher.reshape(B * N, C)
+
+                    input_ids_und = input_ids_und.reshape(B * N)
+                    selected = (input_ids_und == self.img_context_token_id)
+                    assert selected.sum() != 0
+                    input_embeds_student = input_embeds_teacher.clone()
+                    input_embeds_student[selected] = x_vq_und.reshape(-1, C).to(input_embeds_student.device)
+                    input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
+
+                    input_embeds_student = input_embeds_student.reshape(B, N, C)
+                    input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
+
+                    # compute understanding distillation loss
+                    answer_logits_student = self.model.language_model(
+                        inputs_embeds        = torch.cat([input_embeds_teacher, input_embeds_student], dim=0),
+                        attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
+                        output_hidden_states = False,
+                    ).logits[answer_mask_und.repeat(2)]
+
+                    print(answer_logits_student.shape)
+
+
+                    # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
                     exit(0)
                     
 
