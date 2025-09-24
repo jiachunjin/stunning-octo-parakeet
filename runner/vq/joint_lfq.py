@@ -161,7 +161,7 @@ class MyTrainer(Trainer):
                         inputs_embeds        = torch.cat([input_embeds_teacher, input_embeds_student], dim=0),
                         attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
                         output_hidden_states = False,
-                    ).logits[answer_mask_und.repeat(2, 1)]
+                    ).logits[answer_mask_und.repeat(2, 1)][:, :self.model.lfq_start_token_id]
 
                     answer_logits_teacher = self.teacher.language_model(
                         inputs_embeds        = input_embeds_teacher,
