@@ -178,6 +178,8 @@ class MyTrainer(Trainer):
 
                     answer_logits_student_log_softmax_complete_feature = torch.nn.functional.log_softmax(answer_logits_student_complete_feature, dim=-1)
                     answer_logits_teacher_log_softmax_vq_feature = torch.nn.functional.log_softmax(answer_logits_student_vq_feature, dim=-1)
+                    answer_logits_teacher_log_softmax = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
+
                     kl_div_complete = torch.nn.functional.kl_div(answer_logits_student_log_softmax_complete_feature, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
                     kl_div_vq = torch.nn.functional.kl_div(answer_logits_teacher_log_softmax_vq_feature, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
