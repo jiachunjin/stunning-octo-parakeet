@@ -15,12 +15,17 @@ def equip_internvl(internvl, config):
     
     # 扩展词汇表以支持LFQ tokens
     print("正在扩展词汇表以支持LFQ tokens...")
-    internvl = expand_vocab_for_lfq(
-        model                 = internvl,
-        lfq_config            = config.down_proj,
-        embedding_init_method = config.vocab_expansion.embedding_init_method,
-        freeze_original       = config.vocab_expansion.freeze_original,
-    )
+    vocab_size = 2 ** config.down_proj.output_dim
+    internvl.visual_token_embeddings = nn.Embedding(vocab_size, config.down_proj.hidden_size)
+    internvl.visual_token_lm_head = nn.Linear(config.down_proj.hidden_size, vocab_size, bias=False)
+    internvl.visual_token_embeddings.requires_grad_(True)
+    internvl.visual_token_lm_head.requires_grad_(True)
+    # internvl = expand_vocab_for_lfq(
+    #     model                 = internvl,
+    #     lfq_config            = config.down_proj,
+    #     embedding_init_method = config.vocab_expansion.embedding_init_method,
+    #     freeze_original       = config.vocab_expansion.freeze_original,
+    # )
     
     # 获取LFQ token范围
     start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
@@ -34,8 +39,8 @@ def equip_internvl(internvl, config):
     internvl.lfq = lfq
     
     # 保存LFQ token信息
-    internvl.lfq_start_token_id = start_token_id
-    internvl.lfq_end_token_id = end_token_id
+    # internvl.lfq_start_token_id = start_token_id
+    # internvl.lfq_end_token_id = end_token_id
     # internvl.lfq_output_dim = config.down_proj.output_dim
 
     if config.tune_llm:
@@ -48,13 +53,12 @@ def equip_internvl(internvl, config):
 
     return internvl
 
-def binary_to_token_id(code_gen, start_token_id, output_dim):
+def binary_to_token_id(code_gen, output_dim):
     """
     将LFQ二进制编码转换为token IDs
     
     Args:
         code_gen: LFQ二进制编码 (B, seq_len, output_dim)
-        start_token_id: LFQ token的起始ID
         output_dim: LFQ输出维度
     
     Returns:
@@ -66,9 +70,6 @@ def binary_to_token_id(code_gen, start_token_id, output_dim):
     
     for i in range(output_dim):
         token_ids += (code_gen[..., i] > 0).long() * (2 ** i)
-    
-    # 加上起始token ID
-    token_ids += start_token_id
     
     return token_ids
 
@@ -101,12 +102,16 @@ class MyTrainer(Trainer):
             print("="*80)
             num_trainable_params = sum(p.numel() for p in self.model.vision_model.parameters() if p.requires_grad)
             print(f"vision model 可训练参数量: {num_trainable_params / 1e6:.2f}M")
-            num_trainable_params = sum(p.numel() for p in self.model.language_model.parameters() if p.requires_grad)
-            print(f"language_model 可训练参数量: {num_trainable_params / 1e6:.2f}M")
+            num_trainable_params = sum(p.numel() for p in self.model.language_model.model.parameters() if p.requires_grad)
+            print(f"llm 可训练参数量: {num_trainable_params / 1e6:.2f}M")
             num_trainable_params = sum(p.numel() for p in self.model.mlp1.parameters() if p.requires_grad)
             print(f"mlp1 可训练参数量: {num_trainable_params / 1e6:.2f}M")
             num_trainable_params = sum(p.numel() for p in self.model.lfq.parameters() if p.requires_grad)
             print(f"lfq 可训练参数量: {num_trainable_params / 1e6:.2f}M")
+            num_trainable_params = sum(p.numel() for p in self.model.visual_token_embeddings.parameters() if p.requires_grad)
+            print(f"visual_token_embeddings 可训练参数量: {num_trainable_params / 1e6:.2f}M")
+            num_trainable_params = sum(p.numel() for p in self.model.visual_token_lm_head.parameters() if p.requires_grad)
+            print(f"visual_token_lm_head 可训练参数量: {num_trainable_params / 1e6:.2f}M")
             # num_trainable_params = sum(p.numel() for p in self.model.get_input_embeddings().parameters() if p.requires_grad)
             # print(f"input_embeddings 可训练参数量: {num_trainable_params / 1e6:.2f}M")
             # num_trainable_params = sum(p.numel() for p in self.model.get_output_embeddings().parameters() if p.requires_grad)
@@ -186,7 +191,7 @@ class MyTrainer(Trainer):
                         inputs_embeds        = torch.cat([input_embeds_teacher, input_embeds_student], dim=0),
                         attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
                         output_hidden_states = False,
-                    ).logits[answer_mask_und.repeat(2, 1)][:, :self.model.lfq_start_token_id]
+                    ).logits[answer_mask_und.repeat(2, 1)]
 
                     answer_logits_teacher = self.teacher.language_model(
                         inputs_embeds        = input_embeds_teacher,
@@ -206,17 +211,23 @@ class MyTrainer(Trainer):
 
                     kl_div_vq = torch.nn.functional.kl_div(answer_logits_teacher_log_softmax_vq_feature, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
+                    print(kl_div_vq, kl_div_complete)
+
                     # ========== compute generation cross entropy loss ==========
-                    fsq_code = binary_to_token_id(code_gen, self.model.lfq_start_token_id, 16) # (B, 256)
-                    input_ids_t2i = torch.cat([input_ids_gen, fsq_code], dim=1)
-                    embedding_t2i = self.model.language_model.get_input_embeddings()(input_ids_t2i).clone() # (B, 512, llm_hidden_size)
-                    clip_logits = self.model.language_model(
+                    fsq_code = binary_to_token_id(code_gen, 16) # (B, 256)
+                    # input_ids_t2i = torch.cat([input_ids_gen], dim=1)
+                    text_embedding_t2i = self.model.language_model.get_input_embeddings()(input_ids_gen).clone() # (B, 512, llm_hidden_size)
+                    visual_embedding_t2i = self.model.visual_token_embeddings(fsq_code) # (B, 256, hidden_size)
+                    embedding_t2i = torch.cat([text_embedding_t2i, visual_embedding_t2i], dim=1)
+
+                    visual_token_hidden_states = self.model.language_model(
                         inputs_embeds        = embedding_t2i,
                         attention_mask       = torch.cat([attention_mask_gen, torch.ones((B_gen, 256), dtype=torch.bool, device=self.device)], dim=1),
-                        output_hidden_states = False,
-                    ).logits[:, -256-1:-1, :]
+                        output_hidden_states = True,
+                    ).hidden_states[-1][:, -256-1:-1, :]
+                    visual_token_logits = self.model.visual_token_lm_head(visual_token_hidden_states)
 
-                    loss_gen = torch.nn.functional.cross_entropy(clip_logits.contiguous().view(-1, clip_logits.size(-1)), fsq_code.contiguous().view(-1), ignore_index=-100)
+                    loss_gen = torch.nn.functional.cross_entropy(visual_token_logits.contiguous().view(-1, visual_token_logits.size(-1)), fsq_code.contiguous().view(-1), ignore_index=-100)
 
                     # ========== backward the total loss ==========
                     loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * (kl_div_complete + kl_div_vq)
