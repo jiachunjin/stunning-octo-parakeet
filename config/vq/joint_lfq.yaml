@@ -38,9 +38,9 @@ train:
   hp_loss_und: 1.0
 
 data:
-  batch_size: &batch_size 16
+  batch_size: &batch_size 32
   und:
-    batch_size: 4
+    batch_size: 8
     num_workers: 2
     max_seq_length: 512
   gen:

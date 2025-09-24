@@ -16,8 +16,8 @@ def equip_internvl(internvl, config):
     # 扩展词汇表以支持LFQ tokens
     print("正在扩展词汇表以支持LFQ tokens...")
     vocab_size = 2 ** config.down_proj.output_dim
-    internvl.visual_token_embeddings = nn.Embedding(vocab_size, config.down_proj.hidden_size)
-    internvl.visual_token_lm_head = nn.Linear(config.down_proj.hidden_size, vocab_size, bias=False)
+    internvl.visual_token_embeddings = torch.nn.Embedding(vocab_size, config.down_proj.hidden_size)
+    internvl.visual_token_lm_head = torch.nn.Linear(config.down_proj.hidden_size, vocab_size, bias=False)
     internvl.visual_token_embeddings.requires_grad_(True)
     internvl.visual_token_lm_head.requires_grad_(True)
     # internvl = expand_vocab_for_lfq(
@@ -28,8 +28,8 @@ def equip_internvl(internvl, config):
     # )
     
     # 获取LFQ token范围
-    start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
-    print(f"LFQ token范围: {start_token_id} - {end_token_id}")
+    # start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
+    # print(f"LFQ token范围: {start_token_id} - {end_token_id}")
     
     # add transformer vq
     lfq = LFQ_transformer(config.down_proj)
@@ -211,7 +211,7 @@ class MyTrainer(Trainer):
 
                     kl_div_vq = torch.nn.functional.kl_div(answer_logits_teacher_log_softmax_vq_feature, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
-                    print(kl_div_vq, kl_div_complete)
+                    # print(kl_div_vq, kl_div_complete)
 
                     # ========== compute generation cross entropy loss ==========
                     fsq_code = binary_to_token_id(code_gen, 16) # (B, 256)
