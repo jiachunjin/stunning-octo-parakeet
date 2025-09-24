@@ -63,13 +63,6 @@ class Trainer:
         )
         self.accelerator.print(f"Learnable parameters: {sum(p.numel() for p in self.params_to_learn if p.requires_grad) / 1e6} M")
         self.accelerator.print(f"Accelerator mixed precision: {self.accelerator.mixed_precision}")
-        
-        # 打印详细的参数统计
-        if self.accelerator.is_main_process:
-            self.accelerator.print("\n" + "="*80)
-            self.accelerator.print("详细模型参数统计")
-            self.accelerator.print("="*80)
-            comprehensive_model_stats(self.model)
 
     def train(self):
         raise NotImplementedError

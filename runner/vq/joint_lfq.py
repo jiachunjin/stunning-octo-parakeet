@@ -73,10 +73,16 @@ class MyTrainer(Trainer):
         self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
 
         if self.accelerator.is_main_process:
-            print("\n" + "="*80)
-            print("词汇表扩展后的模型参数统计")
+            print()
             print("="*80)
-            comprehensive_model_stats(internvl)
+            num_trainable_params = sum(p.numel() for p in self.model.vision_model.parameters() if p.requires_grad)
+            print(f"vision model 可训练参数量: {num_trainable_params}")
+            num_trainable_params = sum(p.numel() for p in self.model.language_model.model.parameters() if p.requires_grad)
+            print(f"language_model.model 可训练参数量: {num_trainable_params}")
+            num_trainable_params = sum(p.numel() for p in self.model.get_input_embeddings().parameters() if p.requires_grad)
+            print(f"input_embeddings 可训练参数量: {num_trainable_params}")
+            num_trainable_params = sum(p.numel() for p in self.model.get_output_embeddings().parameters() if p.requires_grad)
+            print(f"output_embeddings 可训练参数量: {num_trainable_params}")
     
     def _load_dataloader(self):
         from util.dataloader import get_blip3o_dataloader
