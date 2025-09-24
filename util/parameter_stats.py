@@ -90,16 +90,16 @@ def print_parameter_summary(model: nn.Module, top_k: int = 20) -> None:
     print(f"可训练比例: {total_trainable/total_params*100:.2f}%")
     print()
     
-    print(f"前{top_k}个参数最多的模块:")
-    print("-" * 80)
-    print(f"{'模块名':<50} {'可训练':<12} {'冻结':<12} {'总计':<12} {'比例':<8}")
-    print("-" * 80)
+    # print(f"前{top_k}个参数最多的模块:")
+    # print("-" * 80)
+    # print(f"{'模块名':<50} {'可训练':<12} {'冻结':<12} {'总计':<12} {'比例':<8}")
+    # print("-" * 80)
     
-    for i, (name, stat) in enumerate(sorted_stats[:top_k]):
-        if stat['trainable'] > 0 or stat['frozen'] > 0:
-            print(f"{name:<50} {stat['trainable']:>10,} {stat['frozen']:>10,} {stat['total']:>10,} {stat['trainable_ratio']:>6.1%}")
+    # for i, (name, stat) in enumerate(sorted_stats[:top_k]):
+    #     if stat['trainable'] > 0 or stat['frozen'] > 0:
+    #         print(f"{name:<50} {stat['trainable']:>10,} {stat['frozen']:>10,} {stat['total']:>10,} {stat['trainable_ratio']:>6.1%}")
     
-    print("-" * 80)
+    # print("-" * 80)
 
 
 def get_embedding_stats(model: nn.Module) -> Dict[str, Dict[str, any]]:
@@ -254,5 +254,5 @@ def comprehensive_model_stats(model: nn.Module) -> None:
         model: PyTorch模型
     """
     print_parameter_summary(model)
-    print_embedding_stats(model)
-    print_lfq_stats(model)
+    # print_embedding_stats(model)
+    # print_lfq_stats(model)
