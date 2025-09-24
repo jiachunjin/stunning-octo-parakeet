@@ -48,6 +48,30 @@ def equip_internvl(internvl, config):
 
     return internvl
 
+def binary_to_token_id(code_gen, start_token_id, output_dim):
+    """
+    将LFQ二进制编码转换为token IDs
+    
+    Args:
+        code_gen: LFQ二进制编码 (B, seq_len, output_dim)
+        start_token_id: LFQ token的起始ID
+        output_dim: LFQ输出维度
+    
+    Returns:
+        token_ids: 对应的token IDs (B, seq_len)
+    """
+    # 将二进制编码转换为整数
+    # code_gen: (B, seq_len, output_dim) -> (B, seq_len)
+    token_ids = torch.zeros(code_gen.shape[:2], dtype=torch.long, device=code_gen.device)
+    
+    for i in range(output_dim):
+        token_ids += (code_gen[..., i] > 0).long() * (2 ** i)
+    
+    # 加上起始token ID
+    token_ids += start_token_id
+    
+    return token_ids
+
 class MyTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
@@ -129,7 +153,7 @@ class MyTrainer(Trainer):
 
                     B_gen, B_und = x_gen.shape[0], x_und.shape[0]
 
-                    # ---------- get vit features ----------
+                    # ========== get vit features ==========
                     with torch.no_grad():
                         vit_features = self.model.get_vit_feature(torch.cat([x_gen, x_und], dim=0))
 
@@ -138,8 +162,9 @@ class MyTrainer(Trainer):
                     x_vq_und = x_vq[B_gen:]
                     vit_features_gen = vit_features[:B_gen]
                     vit_features_und = vit_features[B_gen:]
+                    code_gen = code[:B_gen]
 
-                    # ---------- understanding distillation ----------
+                    # ========== compute understanding distillation loss ==========
                     vit_embeds_teacher = self.teacher.mlp1(vit_features_und)
                     # build input embeddings for teacher and model
                     input_embeds_teacher = self.teacher.language_model.get_input_embeddings()(input_ids_und)
@@ -173,9 +198,6 @@ class MyTrainer(Trainer):
                     answer_logits_student_complete_feature = answer_logits_student[:answer_logits_student.shape[0]//2]
                     answer_logits_student_vq_feature = answer_logits_student[answer_logits_student.shape[0]//2:]
 
-                    # print(answer_logits_student.shape)
-                    # print(answer_logits_teacher.shape)
-
                     answer_logits_student_log_softmax_complete_feature = torch.nn.functional.log_softmax(answer_logits_student_complete_feature, dim=-1)
                     answer_logits_teacher_log_softmax_vq_feature = torch.nn.functional.log_softmax(answer_logits_student_vq_feature, dim=-1)
                     answer_logits_teacher_log_softmax = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
@@ -186,8 +208,20 @@ class MyTrainer(Trainer):
 
                     self.accelerator.print(kl_div_complete, kl_div_vq)
                     # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
+
+                    # ========== compute generation cross entropy loss ==========
+                    fsq_code = binary_to_token_id(code_gen, self.model.lfq_start_token_id, self.model.lfq_output_dim)
+                    self.accelerator.print(fsq_code, fsq_code.shape)
+                    input_ids_t2i = torch.cat([input_ids_gen, fsq_code], dim=1)
+                    embedding_t2i = self.model.language_model.get_input_embeddings()(input_ids_t2i).clone()
+                    self.accelerator.print(embedding_t2i.shape)
+
                     exit(0)
-                    
+                    # answer_logits_student = self.model.language_model(
+                    #     inputs_embeds        = torch.cat([input_embeds_teacher, input_embeds_student], dim=0),
+                    #     attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
+                    #     output_hidden_states = False,
+                    # ).logits
 
 
 
