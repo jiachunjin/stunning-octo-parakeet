@@ -44,11 +44,11 @@ def equip_internvl(internvl, config):
     # internvl.lfq_output_dim = config.down_proj.output_dim
 
     if config.tune_llm:
-        internvl.language_model.requires_grad_(True)
-        num_params = sum(p.numel() for p in internvl.language_model.parameters() if p.requires_grad)
+        internvl.language_model.model.requires_grad_(True)
+        num_params = sum(p.numel() for p in internvl.language_model.model.parameters() if p.requires_grad)
         print(f"tune_llm: True, 可训练参数量: {num_params}")
     else:
-        internvl.language_model.requires_grad_(False)
+        internvl.language_model.model.requires_grad_(False)
         print(f"tune_llm: False")
 
     return internvl
@@ -115,17 +115,16 @@ class MyTrainer(Trainer):
                     attention_mask_und = batch_und["attention_mask"].to(torch.bool)
                     answer_mask_und = batch_und["answer_mask"].to(torch.bool)
 
-                    self.accelerator.print(
-                        x_gen.shape,
-                        x_und.shape,
-                        input_ids_gen.shape,
-                        input_ids_und.shape,
-                        attention_mask_gen.shape,
-                        attention_mask_und.shape,
-                        answer_mask_und.shape,
-                    )
+                    B_gen, B_und = x_gen.shape[0], x_und.shape[0]
+
+                    # ---------- get vit features ----------
+                    with torch.no_grad():
+                        vit_features = self.model.get_vit_feature(torch.cat([x_gen, x_und], dim=0))
+                        vit_features_gen = vit_features[:B_gen]
+                        vit_features_und = vit_features[B_gen:]
+
+                    self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
                     exit(0)
-                    
                     
 
 
