@@ -76,13 +76,17 @@ class MyTrainer(Trainer):
             print()
             print("="*80)
             num_trainable_params = sum(p.numel() for p in self.model.vision_model.parameters() if p.requires_grad)
-            print(f"vision model 可训练参数量: {num_trainable_params}")
+            print(f"vision model 可训练参数量: {num_trainable_params / 1e6:.2f}M")
             num_trainable_params = sum(p.numel() for p in self.model.language_model.model.parameters() if p.requires_grad)
-            print(f"language_model.model 可训练参数量: {num_trainable_params}")
-            num_trainable_params = sum(p.numel() for p in self.model.get_input_embeddings().parameters() if p.requires_grad)
-            print(f"input_embeddings 可训练参数量: {num_trainable_params}")
-            num_trainable_params = sum(p.numel() for p in self.model.get_output_embeddings().parameters() if p.requires_grad)
-            print(f"output_embeddings 可训练参数量: {num_trainable_params}")
+            print(f"language_model.model 可训练参数量: {num_trainable_params / 1e6:.2f}M")
+            num_trainable_params = sum(p.numel() for p in self.model.mlp1.parameters() if p.requires_grad)
+            print(f"mlp1 可训练参数量: {num_trainable_params / 1e6:.2f}M")
+            num_trainable_params = sum(p.numel() for p in self.model.lfq.parameters() if p.requires_grad)
+            print(f"lfq 可训练参数量: {num_trainable_params / 1e6:.2f}M")
+            # num_trainable_params = sum(p.numel() for p in self.model.get_input_embeddings().parameters() if p.requires_grad)
+            # print(f"input_embeddings 可训练参数量: {num_trainable_params / 1e6:.2f}M")
+            # num_trainable_params = sum(p.numel() for p in self.model.get_output_embeddings().parameters() if p.requires_grad)
+            # print(f"output_embeddings 可训练参数量: {num_trainable_params / 1e6:.2f}M")
     
     def _load_dataloader(self):
         from util.dataloader import get_blip3o_dataloader
