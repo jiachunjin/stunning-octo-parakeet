@@ -11,6 +11,7 @@
 - 保留所有已有的embeddings
 - 为新token初始化embeddings
 - 同时扩展input和output embeddings
+- 支持冻结原始embeddings，只训练新扩展部分
 
 ### 2. LFQ集成
 - 自动为LFQ tokens分配词汇表空间
@@ -34,7 +35,8 @@ expanded_model = expand_vocab_for_lfq(
     lfq_config={
         'output_dim': 16  # LFQ输出维度
     },
-    embedding_init_method="random"
+    embedding_init_method="random",
+    freeze_original=True  # 冻结原始embeddings
 )
 ```
 
@@ -63,6 +65,7 @@ model:
     enabled: true
     embedding_init_method: "random"  # "random", "zeros", "mean"
     embedding_init_std: 0.02
+    freeze_original: true  # 冻结原始embeddings，只训练新扩展部分
 ```
 
 ### 初始化方法
@@ -104,13 +107,19 @@ lfq_codes = decode_tokens_to_lfq_codes(
 运行测试脚本验证功能：
 
 ```bash
+# 测试基本功能
 python test_vocab_expansion.py
+
+# 测试冻结功能
+python test_freeze_embeddings.py
 ```
 
 测试包括：
 - 词汇表扩展功能
 - LFQ编码解码
 - Embedding保留
+- 原始embeddings冻结
+- 梯度冻结验证
 - joint_lfq.py集成
 
 ## 技术细节
@@ -140,6 +149,7 @@ token_id = sum(bit_i * 2^i) for i in range(output_dim)
 2. **训练稳定性**: 新embeddings需要适当的初始化
 3. **兼容性**: 确保tokenizer也支持新的词汇表大小
 4. **保存/加载**: 扩展后的模型需要特殊处理
+5. **冻结功能**: 冻结原始embeddings可以防止灾难性遗忘，但需要确保新embeddings有足够的训练数据
 
 ## 故障排除
 
@@ -170,4 +180,15 @@ print(f"LFQ token范围: {start_id} - {end_id}")
 # 检查embedding形状
 embeddings = model.language_model.get_input_embeddings()
 print(f"Embedding形状: {embeddings.weight.shape}")
+
+# 检查冻结状态
+if hasattr(embeddings, 'trainable_mask'):
+    trainable_count = embeddings.trainable_mask.sum().item()
+    total_count = embeddings.trainable_mask.numel()
+    print(f"可训练embedding比例: {trainable_count/total_count*100:.2f}%")
+
+# 检查梯度冻结
+if embeddings.weight.grad is not None:
+    grad_norm = embeddings.weight.grad.norm().item()
+    print(f"Embedding梯度范数: {grad_norm}")
 ```

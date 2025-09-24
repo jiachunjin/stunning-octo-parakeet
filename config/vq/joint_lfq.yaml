@@ -14,6 +14,7 @@ model:
     enabled: true
     embedding_init_method: "random"  # "random", "zeros", "mean"
     embedding_init_std: 0.02
+    freeze_original: true  # 冻结原始embeddings，只训练新扩展的部分
 
 train:
   root: /data/phd/jinjiachun/experiment

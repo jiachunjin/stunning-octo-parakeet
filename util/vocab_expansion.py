@@ -16,7 +16,8 @@ def expand_vocab_embeddings(
     new_vocab_size: int,
     embedding_init_method: str = "random",
     embedding_init_std: float = 0.02,
-    preserve_existing: bool = True
+    preserve_existing: bool = True,
+    freeze_original: bool = True
 ) -> nn.Module:
     """
     扩展模型的词汇表大小，保留已有的embeddings
@@ -27,6 +28,7 @@ def expand_vocab_embeddings(
         embedding_init_method: 新embedding的初始化方法 ("random", "zeros", "mean")
         embedding_init_std: 随机初始化的标准差
         preserve_existing: 是否保留已有的embeddings
+        freeze_original: 是否冻结原始embeddings，只训练新扩展的部分
     
     Returns:
         扩展后的模型
@@ -87,6 +89,11 @@ def expand_vocab_embeddings(
         # 设置新的output embeddings
         language_model.set_output_embeddings(new_lm_head)
     
+    # 冻结原始embeddings，只训练新扩展的部分
+    if freeze_original:
+        _freeze_original_embeddings(language_model, old_vocab_size)
+        logger.info(f"已冻结原始embeddings (0-{old_vocab_size-1})，只训练新扩展部分 ({old_vocab_size}-{new_vocab_size-1})")
+    
     # 更新配置
     language_model.config.vocab_size = new_vocab_size
     
@@ -119,10 +126,57 @@ def _init_new_embeddings(
             raise ValueError(f"不支持的初始化方法: {method}")
 
 
+def _freeze_original_embeddings(language_model: nn.Module, old_vocab_size: int) -> None:
+    """
+    冻结原始embeddings，只让新扩展的部分可训练
+    
+    Args:
+        language_model: 语言模型
+        old_vocab_size: 原始词汇表大小
+    """
+    # 冻结input embeddings的原始部分
+    input_embeddings = language_model.get_input_embeddings()
+    if input_embeddings is not None:
+        # 创建可训练mask
+        input_embeddings.trainable_mask = torch.ones_like(input_embeddings.weight, dtype=torch.bool)
+        input_embeddings.trainable_mask[:old_vocab_size] = False
+        
+        # 注册hook来冻结原始部分
+        def freeze_input_hook(module, grad_input, grad_output):
+            if hasattr(module, 'trainable_mask') and grad_input[0] is not None:
+                # 将不可训练部分的梯度置零
+                grad_input[0][~module.trainable_mask] = 0
+            return grad_input
+        
+        input_embeddings.register_backward_hook(freeze_input_hook)
+        logger.info(f"已设置input embeddings冻结mask: {old_vocab_size}个原始token被冻结")
+    
+    # 冻结output embeddings (lm_head)的原始部分
+    output_embeddings = language_model.get_output_embeddings()
+    if output_embeddings is not None:
+        # 创建可训练mask
+        output_embeddings.trainable_mask = torch.ones_like(output_embeddings.weight, dtype=torch.bool)
+        output_embeddings.trainable_mask[:old_vocab_size] = False
+        
+        def freeze_output_hook(module, grad_input, grad_output):
+            if hasattr(module, 'trainable_mask') and grad_input[0] is not None:
+                # 将不可训练部分的梯度置零
+                grad_input[0][~module.trainable_mask] = 0
+            if len(grad_input) > 1 and grad_input[1] is not None and hasattr(module, 'trainable_mask'):  # bias
+                # 对于bias，需要创建对应的mask
+                bias_mask = module.trainable_mask[:, 0]  # 取第一列作为bias mask
+                grad_input[1][~bias_mask] = 0
+            return grad_input
+        
+        output_embeddings.register_backward_hook(freeze_output_hook)
+        logger.info(f"已设置output embeddings冻结mask: {old_vocab_size}个原始token被冻结")
+
+
 def expand_vocab_for_lfq(
     model: nn.Module,
     lfq_config: dict,
-    embedding_init_method: str = "random"
+    embedding_init_method: str = "random",
+    freeze_original: bool = True
 ) -> nn.Module:
     """
     为LFQ模型扩展词汇表
@@ -131,6 +185,7 @@ def expand_vocab_for_lfq(
         model: InternVL模型
         lfq_config: LFQ配置，包含output_dim等信息
         embedding_init_method: 新embedding的初始化方法
+        freeze_original: 是否冻结原始embeddings，只训练新扩展的部分
     
     Returns:
         扩展后的模型
@@ -151,7 +206,8 @@ def expand_vocab_for_lfq(
         model=model,
         new_vocab_size=new_vocab_size,
         embedding_init_method=embedding_init_method,
-        preserve_existing=True
+        preserve_existing=True,
+        freeze_original=freeze_original
     )
     
     return model

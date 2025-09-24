@@ -11,14 +11,17 @@ def equip_internvl(internvl, config):
     # 扩展词汇表以支持LFQ tokens
     print("正在扩展词汇表以支持LFQ tokens...")
     internvl = expand_vocab_for_lfq(
-        model=internvl,
-        lfq_config=config.down_proj,
-        embedding_init_method="random"
+        model                 = internvl,
+        lfq_config            = config.down_proj,
+        embedding_init_method = config.vocab_expansion.embedding_init_method,
+        freeze_original       = config.vocab_expansion.freeze_original,
     )
     
     # 获取LFQ token范围
     start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
     print(f"LFQ token范围: {start_token_id} - {end_token_id}")
+    internvl.get_output_embeddings().requires_grad_(True)
+    internvl.get_input_embeddings().requires_grad_(True)
     
     # add transformer vq
     lfq = LFQ_transformer(config.down_proj)
@@ -49,7 +52,7 @@ class MyTrainer(Trainer):
         from model.internvl.modeling_internvl_chat import InternVLChatModel
 
         internvl = InternVLChatModel.from_pretrained(self.config.model.internvl_path)
-        self.internvl = equip_internvl(internvl, self.config.model)
+        self.model = equip_internvl(internvl, self.config.model)
     
     def _load_dataloader(self):
         from util.dataloader import get_blip3o_dataloader
