@@ -181,15 +181,19 @@ class MyTrainer(Trainer):
                     selected = (input_ids_und == self.img_context_token_id)
                     assert selected.sum() != 0
                     input_embeds_student = input_embeds_teacher.clone()
+                    input_embeds_student_complete = input_embeds_teacher.clone()
                     input_embeds_student[selected] = x_vq_und.reshape(-1, C).to(input_embeds_student.device)
+                    input_embeds_student_complete[selected] = self.model.mlp1(vit_features_und).reshape(-1, C).to(input_embeds_teacher.device)
                     input_embeds_teacher[selected] = vit_embeds_teacher.reshape(-1, C).to(input_embeds_teacher.device)
+
 
                     input_embeds_student = input_embeds_student.reshape(B, N, C)
                     input_embeds_teacher = input_embeds_teacher.reshape(B, N, C)
+                    input_embeds_student_complete = input_embeds_student_complete.reshape(B, N, C)
 
                     # compute understanding distillation loss
                     answer_logits_student = self.model.language_model(
-                        inputs_embeds        = torch.cat([self.model.mlp1(vit_features_und), input_embeds_student], dim=0),
+                        inputs_embeds        = torch.cat([input_embeds_student_complete, input_embeds_student], dim=0),
                         attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
                         output_hidden_states = False,
                     ).logits[answer_mask_und.repeat(2, 1)]
