@@ -210,11 +210,22 @@ class MyTrainer(Trainer):
                     # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
 
                     # ========== compute generation cross entropy loss ==========
-                    fsq_code = binary_to_token_id(code_gen, self.model.lfq_start_token_id, self.model.lfq_output_dim)
-                    self.accelerator.print(fsq_code, fsq_code.shape)
+                    fsq_code = binary_to_token_id(code_gen, self.model.lfq_start_token_id, self.model.config.down_proj.output_dim) # (B, 256)
                     input_ids_t2i = torch.cat([input_ids_gen, fsq_code], dim=1)
-                    embedding_t2i = self.model.language_model.get_input_embeddings()(input_ids_t2i).clone()
-                    self.accelerator.print(embedding_t2i.shape)
+                    embedding_t2i = self.model.language_model.get_input_embeddings()(input_ids_t2i).clone() # (B, 512, llm_hidden_size)
+                    clip_logits = self.model.language_model(
+                        inputs_embeds        = embedding_t2i,
+                        attention_mask       = torch.cat([attention_mask_gen, torch.ones((B_gen, 256), dtype=torch.bool, device=self.device)], dim=1),
+                        output_hidden_states = False,
+                    ).logits[:, -256-1:-1, :]
+
+                    self.accelerator.print(clip_logits.shape, fsq_code.shape)
+                    loss_gen = torch.nn.functional.cross_entropy(clip_logits.view(-1, clip_logits.size(-1)), fsq_code.view(-1), ignore_index=-100)
+                    self.accelerator.print(loss_gen)
+                    # logits = janus.language_model.lm_head(hidden_states_und)
+                    
+                    # self.accelerator.print(embedding_t2i.shape)
+
 
                     exit(0)
                     # answer_logits_student = self.model.language_model(
