@@ -169,19 +169,20 @@ class MyTrainer(Trainer):
                         output_hidden_states = False,
                     ).logits[answer_mask_und]
 
-                    answer_logits_teacher = answer_logits_teacher.repeat(2, 1)
+                    answer_logits_teacher = answer_logits_teacher
+                    answer_logits_student_complete_feature = answer_logits_student[:answer_logits_student.shape[0]//2]
+                    answer_logits_student_vq_feature = answer_logits_student[answer_logits_student.shape[0]//2:]
 
-                    print(answer_logits_student.shape)
-                    print(answer_logits_teacher.shape)
+                    # print(answer_logits_student.shape)
+                    # print(answer_logits_teacher.shape)
 
-                    answer_logits_student_log_softmax = torch.nn.functional.log_softmax(answer_logits_student, dim=-1)
-                    answer_logits_teacher_log_softmax = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
-                    kl_div = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
+                    answer_logits_student_log_softmax_complete_feature = torch.nn.functional.log_softmax(answer_logits_student_complete_feature, dim=-1)
+                    answer_logits_teacher_log_softmax_vq_feature = torch.nn.functional.log_softmax(answer_logits_student_vq_feature, dim=-1)
+                    kl_div_complete = torch.nn.functional.kl_div(answer_logits_student_log_softmax_complete_feature, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
-                    loss_und = kl_div
+                    kl_div_vq = torch.nn.functional.kl_div(answer_logits_teacher_log_softmax_vq_feature, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
-                    print(loss_und, loss_und.shape)
-
+                    self.accelerator.print(kl_div_complete, kl_div_vq)
                     # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
                     exit(0)
                     
