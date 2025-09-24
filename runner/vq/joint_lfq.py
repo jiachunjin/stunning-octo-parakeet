@@ -250,6 +250,21 @@ class MyTrainer(Trainer):
                         self.accelerator.log(logs, step=self.global_step)
                         self.progress_bar.set_postfix(**logs)
 
+                    if self.global_step > 0 and self.global_step % self.config.train.save_every == 0 and self.accelerator.is_main_process:
+                        self.model.eval()
+                        state_dict = self.accelerator.unwrap_model(self.model).state_dict()
+                        save_path = os.path.join(self.output_dir, f"internvl-{self.config.train.exp_name}-{self.global_step}")
+                        torch.save(state_dict, save_path)
+                        print(f"internvl saved to {save_path}")
+
+                    self.accelerator.wait_for_everyone()
+
+            self.epoch += 1
+            self.accelerator.print(f"epoch {self.epoch}: finished")
+            self.accelerator.log({"epoch": self.epoch}, step=self.global_step)
+
+        self.accelerator.end_training()
+
 
 
 def main(args):
