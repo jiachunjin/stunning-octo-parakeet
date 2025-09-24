@@ -2,6 +2,10 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+import copy
+import torch
+from transformers import AutoTokenizer
+
 from util.trainer import Trainer
 from util.vocab_expansion import expand_vocab_for_lfq, get_lfq_token_range
 
@@ -20,8 +24,12 @@ def equip_internvl(internvl, config):
     # 获取LFQ token范围
     start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
     print(f"LFQ token范围: {start_token_id} - {end_token_id}")
-    internvl.get_output_embeddings().requires_grad_(True)
     internvl.get_input_embeddings().requires_grad_(True)
+    internvl.get_output_embeddings().requires_grad_(True)
+    num_params = sum(p.numel() for p in internvl.get_input_embeddings().parameters() if p.requires_grad)
+    print(f"internvl input embeddings 可训练参数量: {num_params}")
+    num_params = sum(p.numel() for p in internvl.get_output_embeddings().parameters() if p.requires_grad)
+    print(f"internvl output embeddings 可训练参数量: {num_params}")
     
     # add transformer vq
     lfq = LFQ_transformer(config.down_proj)
@@ -52,7 +60,18 @@ class MyTrainer(Trainer):
         from model.internvl.modeling_internvl_chat import InternVLChatModel
 
         internvl = InternVLChatModel.from_pretrained(self.config.model.internvl_path)
-        self.model = equip_internvl(internvl, self.config.model)
+        teacher = copy.deepcopy(internvl)
+        teacher.requires_grad_(False)
+
+        internvl = equip_internvl(internvl, self.config.model)
+        if self.config.train.resume_path is not None:
+            ckpt = torch.load(self.config.train.resume_path, map_location="cpu", weights_only=True)
+            m, u = internvl.load_state_dict(ckpt, strict=False)
+            print(f"missing keys: {m}, unmatched keys: {u}")
+
+        self.teacher = teacher
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.internvl_path, trust_remote_code=True, use_fast=False)
+        self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
     
     def _load_dataloader(self):
         from util.dataloader import get_blip3o_dataloader
@@ -62,7 +81,51 @@ class MyTrainer(Trainer):
         self.dataloader_und = get_llava_mix665k_dataloader(self.config.data.und)
     
     def train(self):
-        self.accelerator.print("Training...")
+        self.model, self.optimizer, self.dataloader_und = self.accelerator.prepare(self.model, self.optimizer, self.dataloader_und)
+
+        IMAGENET_MEAN = (0.485, 0.456, 0.406)
+        IMAGENET_STD = (0.229, 0.224, 0.225)
+        imagenet_mean = torch.tensor(IMAGENET_MEAN, device=self.accelerator.device, dtype=self.dtype).view(1, 3, 1, 1)
+        imagenet_std = torch.tensor(IMAGENET_STD, device=self.accelerator.device, dtype=self.dtype).view(1, 3, 1, 1)
+
+        training_done = False
+
+        und_iter = iter(self.dataloader_und)
+        while not training_done:
+            for batch_gen in self.dataloader_gen:
+                with self.accelerator.accumulate(self.model):
+                    self.model.train()
+
+                    try:
+                        batch_und = next(und_iter)
+                    except StopIteration:
+                        und_iter = iter(self.dataloader_und)
+                        batch_und = next(und_iter)
+
+                    pixel_values_gen = batch_gen["pixel_values"].to(self.device, self.dtype)
+                    input_ids_gen = batch_gen["input_ids"].to(self.device)
+                    attention_mask_gen = batch_gen["attention_mask"].to(self.device)
+                    x_intern = (pixel_values_gen - imagenet_mean) / imagenet_std
+
+                    pixel_values_und = batch_und["pixel_values"].to(self.dtype)
+                    input_ids_und = batch_und["input_ids"].to(torch.int64)
+                    attention_mask_und = batch_und["attention_mask"].to(torch.bool)
+                    answer_mask_und = batch_und["answer_mask"].to(torch.bool)
+
+                    self.accelerator.print(
+                        pixel_values_gen.shape,
+                        pixel_values_und.shape,
+                        input_ids_gen.shape,
+                        input_ids_und.shape,
+                        attention_mask_gen.shape,
+                        attention_mask_und.shape,
+                        answer_mask_und.shape,
+                    )
+                    exit(0)
+                    
+                    
+
+
 
 
 def main(args):
