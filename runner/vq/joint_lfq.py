@@ -171,7 +171,7 @@ class MyTrainer(Trainer):
                     code_gen = code[:B_gen]
 
                     # ========== compute understanding distillation loss ==========
-                    vit_embeds_teacher = self.model.mlp1(vit_features_und)
+                    vit_embeds_teacher = self.teacher.mlp1(vit_features_und)
                     # build input embeddings for teacher and model
                     input_embeds_teacher = self.teacher.language_model.get_input_embeddings()(input_ids_und)
                     B, N, C = input_embeds_teacher.shape
@@ -189,7 +189,7 @@ class MyTrainer(Trainer):
 
                     # compute understanding distillation loss
                     answer_logits_student = self.model.language_model(
-                        inputs_embeds        = torch.cat([input_embeds_teacher, input_embeds_student], dim=0),
+                        inputs_embeds        = torch.cat([self.model.mlp1(vit_features_und), input_embeds_student], dim=0),
                         attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
                         output_hidden_states = False,
                     ).logits[answer_mask_und.repeat(2, 1)]
