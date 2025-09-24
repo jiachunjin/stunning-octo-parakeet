@@ -30,14 +30,16 @@ def equip_internvl(internvl, config):
     # 保存LFQ token信息
     internvl.lfq_start_token_id = start_token_id
     internvl.lfq_end_token_id = end_token_id
-    internvl.lfq_output_dim = config.down_proj.output_dim
+    # internvl.lfq_output_dim = config.down_proj.output_dim
 
-    if config.model.tune_llm:
+    if config.tune_llm:
         internvl.language_model.requires_grad_(True)
         print(f"tune_llm: True")
     else:
         internvl.language_model.requires_grad_(False)
         print(f"tune_llm: False")
+
+    return internvl
 
 class MyTrainer(Trainer):
     def __init__(self, config):
