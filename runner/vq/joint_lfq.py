@@ -25,12 +25,6 @@ def equip_internvl(internvl, config):
     # 获取LFQ token范围
     start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
     print(f"LFQ token范围: {start_token_id} - {end_token_id}")
-    # 打印详细的参数统计
-    if self.accelerator.is_main_process:
-        print("\n" + "="*80)
-        print("词汇表扩展后的模型参数统计")
-        print("="*80)
-        comprehensive_model_stats(internvl)
     
     # add transformer vq
     lfq = LFQ_transformer(config.down_proj)
@@ -77,6 +71,12 @@ class MyTrainer(Trainer):
         self.model = internvl
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.internvl_path, trust_remote_code=True, use_fast=False)
         self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
+
+        if self.accelerator.is_main_process:
+            print("\n" + "="*80)
+            print("词汇表扩展后的模型参数统计")
+            print("="*80)
+            comprehensive_model_stats(internvl)
     
     def _load_dataloader(self):
         from util.dataloader import get_blip3o_dataloader
