@@ -18,8 +18,7 @@ model:
 
 train:
   root: /data/phd/jinjiachun/experiment
-  resume_path: /data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_transformer_debug/internvl-vq_llava_distill-22000
-  skip_keys: ["language_model.model.embed_tokens.weight", "language_model.lm_head.weight"]
+  resume_path: /data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_transformer_debug/internvl-vq_llava_distill-32000
   global_step: 0
 
   exp_name: &exp_name vq_llava_distill
@@ -38,9 +37,9 @@ train:
   hp_loss_und: 1.0
 
 data:
-  batch_size: &batch_size 32
+  batch_size: &batch_size 24
   und:
-    batch_size: 8
+    batch_size: 6
     num_workers: 2
     max_seq_length: 512
   gen:
