@@ -34,7 +34,7 @@ class LFQ_transformer(nn.Module):
         self.config = config
         self.down_proj = ViT(config)
         self.up_proj = nn.Sequential(
-            nn.Linear(config.down_dim, config.llm_hidden_size, bias=True),
+            nn.Linear(config.output_dim, config.llm_hidden_size, bias=True),
             nn.GELU(),
             nn.Linear(config.llm_hidden_size, config.llm_hidden_size, bias=True)
         )

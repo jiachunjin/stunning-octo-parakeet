@@ -13,8 +13,8 @@ model:
 # --------------------------------------------------
 train:
   root: /data/phd/jinjiachun/experiment
-  resume_path: null
-  global_step: 0
+  resume_path: /data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_transformer_debug/internvl-vq_llava_distill-8000
+  global_step: 8000
 
   exp_name: &exp_name vq_llava_distill
   proj_name: *exp_name
@@ -22,7 +22,7 @@ train:
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: swanlab
 
   lr: 1e-4
   num_iter: 100000
@@ -31,6 +31,6 @@ train:
   hp_loss_und: 1.0
 
 data:
-  batch_size: 32
+  batch_size: 45
   num_workers: 8
   max_seq_length: 512

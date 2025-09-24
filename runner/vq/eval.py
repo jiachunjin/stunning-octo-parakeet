@@ -18,8 +18,9 @@ def img_describe():
     dtype = torch.bfloat16
 
     # ---------- load trained internvl with new projector ----------
-    exp_dir = "/data/phd/jinjiachun/experiment/vq_llava_distill/0922_llava_lfq_d16"
-    step = 2000
+    # exp_dir = "/data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_d16_debug"
+    exp_dir = "/data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_transformer_debug"
+    step = 12000
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     internvl_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
     internvl = InternVLChatModel.from_pretrained(internvl_path)
@@ -59,9 +60,9 @@ def test_mme():
     dtype = torch.bfloat16
 
     # ---------- load trained internvl with new projector ----------
-    exp_dir = "/data/phd/jinjiachun/experiment/vq_llava_distill/0922_llava_lfq_d16"
+    exp_dir = "/data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_transformer_debug"
     exp_name = exp_dir.split("/")[-1]
-    step = 36000
+    step = 12000
     config = OmegaConf.load(os.path.join(exp_dir, "config.yaml"))
     internvl_path = "/data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-1B"
     internvl = InternVLChatModel.from_pretrained(internvl_path)
