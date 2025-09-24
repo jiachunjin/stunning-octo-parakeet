@@ -8,6 +8,7 @@ from transformers import AutoTokenizer
 
 from util.trainer import Trainer
 from util.vocab_expansion import expand_vocab_for_lfq, get_lfq_token_range
+from util.parameter_stats import comprehensive_model_stats
 
 def equip_internvl(internvl, config):
     from model.vq.lfq import LFQ_transformer
@@ -24,12 +25,11 @@ def equip_internvl(internvl, config):
     # 获取LFQ token范围
     start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
     print(f"LFQ token范围: {start_token_id} - {end_token_id}")
-    internvl.get_input_embeddings().requires_grad_(True)
-    internvl.get_output_embeddings().requires_grad_(True)
-    num_params = sum(p.numel() for p in internvl.get_input_embeddings().parameters() if p.requires_grad)
-    print(f"internvl input embeddings 可训练参数量: {num_params}")
-    num_params = sum(p.numel() for p in internvl.get_output_embeddings().parameters() if p.requires_grad)
-    print(f"internvl output embeddings 可训练参数量: {num_params}")
+    # 打印详细的参数统计
+    print("\n" + "="*80)
+    print("词汇表扩展后的模型参数统计")
+    print("="*80)
+    comprehensive_model_stats(internvl)
     
     # add transformer vq
     lfq = LFQ_transformer(config.down_proj)
@@ -61,6 +61,7 @@ class MyTrainer(Trainer):
         from model.internvl.modeling_internvl_chat import InternVLChatModel
 
         internvl = InternVLChatModel.from_pretrained(self.config.model.internvl_path)
+        internvl.requires_grad_(False)
         teacher = copy.deepcopy(internvl)
         teacher.requires_grad_(False)
 
