@@ -26,10 +26,11 @@ def equip_internvl(internvl, config):
     start_token_id, end_token_id = get_lfq_token_range(internvl, config.down_proj)
     print(f"LFQ token范围: {start_token_id} - {end_token_id}")
     # 打印详细的参数统计
-    print("\n" + "="*80)
-    print("词汇表扩展后的模型参数统计")
-    print("="*80)
-    comprehensive_model_stats(internvl)
+    if self.accelerator.is_main_process:
+        print("\n" + "="*80)
+        print("词汇表扩展后的模型参数统计")
+        print("="*80)
+        comprehensive_model_stats(internvl)
     
     # add transformer vq
     lfq = LFQ_transformer(config.down_proj)
