@@ -141,7 +141,6 @@ class MyTrainer(Trainer):
 
                     # ---------- understanding distillation ----------
                     vit_embeds_teacher = self.teacher.mlp1(vit_features_und)
-                    vit_embeds_student = self.model.mlp1(x_vq_und)
                     # build input embeddings for teacher and model
                     input_embeds_teacher = self.teacher.language_model.get_input_embeddings()(input_ids_und)
                     B, N, C = input_embeds_teacher.shape
@@ -162,10 +161,26 @@ class MyTrainer(Trainer):
                         inputs_embeds        = torch.cat([input_embeds_teacher, input_embeds_student], dim=0),
                         attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
                         output_hidden_states = False,
-                    ).logits[answer_mask_und.repeat(2)]
+                    ).logits[answer_mask_und.repeat(2, 1)]
+
+                    answer_logits_teacher = self.teacher.language_model(
+                        inputs_embeds        = input_embeds_teacher,
+                        attention_mask       = attention_mask_und,
+                        output_hidden_states = False,
+                    ).logits[answer_mask_und]
+
+                    answer_logits_teacher = answer_logits_teacher.repeat(2, 1)
 
                     print(answer_logits_student.shape)
+                    print(answer_logits_teacher.shape)
 
+                    answer_logits_student_log_softmax = torch.nn.functional.log_softmax(answer_logits_student, dim=-1)
+                    answer_logits_teacher_log_softmax = torch.nn.functional.log_softmax(answer_logits_teacher, dim=-1)
+                    kl_div = torch.nn.functional.kl_div(answer_logits_student_log_softmax, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
+
+                    loss_und = kl_div
+
+                    print(loss_und)
 
                     # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
                     exit(0)

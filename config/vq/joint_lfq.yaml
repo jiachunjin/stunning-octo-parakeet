@@ -37,9 +37,9 @@ train:
   hp_loss_und: 1.0
 
 data:
-  batch_size: 32
+  batch_size: &batch_size 4
   und:
-    batch_size: 32
+    batch_size: 4
     num_workers: 2
     max_seq_length: 512
   gen:
@@ -49,5 +49,5 @@ data:
     num_img_token: 256
     max_seq_length: 512
     buffer_size: 100
-    batch_size: 32
+    batch_size: *batch_size
     num_workers: 8
