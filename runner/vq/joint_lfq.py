@@ -206,9 +206,6 @@ class MyTrainer(Trainer):
 
                     kl_div_vq = torch.nn.functional.kl_div(answer_logits_teacher_log_softmax_vq_feature, answer_logits_teacher_log_softmax, log_target=True, reduction='batchmean')
 
-                    self.accelerator.print(kl_div_complete, kl_div_vq)
-                    # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
-
                     # ========== compute generation cross entropy loss ==========
                     fsq_code = binary_to_token_id(code_gen, self.model.lfq_start_token_id, 16) # (B, 256)
                     input_ids_t2i = torch.cat([input_ids_gen, fsq_code], dim=1)
@@ -219,21 +216,28 @@ class MyTrainer(Trainer):
                         output_hidden_states = False,
                     ).logits[:, -256-1:-1, :]
 
-                    self.accelerator.print(clip_logits.shape, fsq_code.shape)
-                    loss_gen = torch.nn.functional.cross_entropy(clip_logits.view(-1, clip_logits.size(-1)), fsq_code.view(-1), ignore_index=-100)
-                    self.accelerator.print(loss_gen)
-                    # logits = janus.language_model.lm_head(hidden_states_und)
-                    
-                    # self.accelerator.print(embedding_t2i.shape)
+                    loss_gen = torch.nn.functional.cross_entropy(clip_logits.contiguous().view(-1, clip_logits.size(-1)), fsq_code.contiguous().view(-1), ignore_index=-100)
 
+                    # ========== backward the total loss ==========
+                    loss = self.config.train.hp_loss_gen * loss_gen + self.config.train.hp_loss_und * (kl_div_complete + kl_div_vq)
 
-                    exit(0)
-                    # answer_logits_student = self.model.language_model(
-                    #     inputs_embeds        = torch.cat([input_embeds_teacher, input_embeds_student], dim=0),
-                    #     attention_mask       = torch.cat([attention_mask_und, attention_mask_und], dim=0),
-                    #     output_hidden_states = False,
-                    # ).logits
+                    self.accelerator.backward(loss)
 
+                    if self.accelerator.sync_gradients:
+                        self.accelerator.clip_grad_norm_(self.params_to_learn, 1.0)
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
+
+                        self.global_step += 1
+                        self.progress_bar.update(1)
+                        logs = dict(
+                            loss_gen = self.accelerator.gather(loss_gen.detach()).mean().item(),
+                            loss_und = self.accelerator.gather(kl_div_vq.detach()).mean().item(),
+                            loss_und_complete = self.accelerator.gather(kl_div_complete.detach()).mean().item(),
+                            loss = self.accelerator.gather(loss.detach()).mean().item(),
+                        )
+                        self.accelerator.log(logs, step=self.global_step)
+                        self.progress_bar.set_postfix(**logs)
 
 
 
