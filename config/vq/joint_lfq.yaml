@@ -18,8 +18,9 @@ model:
 
 train:
   root: /data/phd/jinjiachun/experiment
-  resume_path: /data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_transformer_debug/xxx
-  global_step: null
+  resume_path: /data/phd/jinjiachun/experiment/vq_llava_distill/0923_llava_lfq_transformer_debug/internvl-vq_llava_distill-22000
+  skip_keys: ["language_model.model.embed_tokens.weight", "language_model.lm_head.weight"]
+  global_step: 0
 
   exp_name: &exp_name vq_llava_distill
   proj_name: *exp_name

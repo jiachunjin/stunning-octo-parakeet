@@ -45,7 +45,8 @@ def equip_internvl(internvl, config):
 
     if config.tune_llm:
         internvl.language_model.requires_grad_(True)
-        print(f"tune_llm: True")
+        num_params = sum(p.numel() for p in internvl.language_model.parameters() if p.requires_grad)
+        print(f"tune_llm: True, 可训练参数量: {num_params}")
     else:
         internvl.language_model.requires_grad_(False)
         print(f"tune_llm: False")
@@ -66,10 +67,12 @@ class MyTrainer(Trainer):
         internvl = equip_internvl(internvl, self.config.model)
         if self.config.train.resume_path is not None:
             ckpt = torch.load(self.config.train.resume_path, map_location="cpu", weights_only=True)
+            ckpt = {k: v for k, v in ckpt.items() if k not in self.config.train.skip_keys}
             m, u = internvl.load_state_dict(ckpt, strict=False)
             print(f"missing keys: {m}, unmatched keys: {u}")
 
         self.teacher = teacher
+        self.model = internvl
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model.internvl_path, trust_remote_code=True, use_fast=False)
         self.img_context_token_id = self.tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
     
@@ -105,16 +108,16 @@ class MyTrainer(Trainer):
                     pixel_values_gen = batch_gen["pixel_values"].to(self.device, self.dtype)
                     input_ids_gen = batch_gen["input_ids"].to(self.device)
                     attention_mask_gen = batch_gen["attention_mask"].to(self.device)
-                    x_intern = (pixel_values_gen - imagenet_mean) / imagenet_std
+                    x_gen = (pixel_values_gen - imagenet_mean) / imagenet_std
 
-                    pixel_values_und = batch_und["pixel_values"].to(self.dtype)
+                    x_und = batch_und["pixel_values"].to(self.dtype)
                     input_ids_und = batch_und["input_ids"].to(torch.int64)
                     attention_mask_und = batch_und["attention_mask"].to(torch.bool)
                     answer_mask_und = batch_und["answer_mask"].to(torch.bool)
 
                     self.accelerator.print(
-                        pixel_values_gen.shape,
-                        pixel_values_und.shape,
+                        x_gen.shape,
+                        x_und.shape,
                         input_ids_gen.shape,
                         input_ids_und.shape,
                         attention_mask_gen.shape,
