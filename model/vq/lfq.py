@@ -51,31 +51,31 @@ class LFQ_transformer(nn.Module):
 
         return x_vq, p_
 
-class LFQ_autoencoder(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.config = config
-        self.encoder = ViT(config.encoder)
-        self.decoder = ViT(config.decoder)
+# class LFQ_autoencoder(nn.Module):
+#     def __init__(self, config):
+#         super().__init__()
+#         self.config = config
+#         self.encoder = ViT(config.encoder)
+#         self.decoder = ViT(config.decoder)
     
-    def forward(self, x):
-        """
-        x: (B, 256, 4096)
-        """
-        x_binary = self.encoder(x) > 0 # (B, 256, 16)
-        code = x_binary * 2 - 1 # (B, 256, 16), -1 or 1
-        code = code.to(x.dtype)
+#     def forward(self, x):
+#         """
+#         x: (B, 256, 4096)
+#         """
+#         x_binary = self.encoder(x) > 0 # (B, 256, 16)
+#         code = x_binary * 2 - 1 # (B, 256, 16), -1 or 1
+#         code = code.to(x.dtype)
 
-        x_recon = self.decoder(self.encoder(x)) # (B, 256, 4096)
+#         x_recon = self.decoder(self.encoder(x)) # (B, 256, 4096)
 
-        return x_recon, code
+#         return x_recon, code
 
 
-if __name__ == "__main__":
-    from omegaconf import OmegaConf
+# if __name__ == "__main__":
+#     from omegaconf import OmegaConf
 
-    config = OmegaConf.load("config/vq/cos_rec_lfq.yaml")
-    lfq = LFQ_autoencoder(config.model)
-    x = torch.randn(1, 256, 4096)
-    x_recon, code = lfq(x)
-    print(code, x_recon.shape, code.shape)
+#     config = OmegaConf.load("config/vq/cos_rec_lfq.yaml")
+#     lfq = LFQ_autoencoder(config.model)
+#     x = torch.randn(1, 256, 4096)
+#     x_recon, code = lfq(x)
+#     print(code, x_recon.shape, code.shape)

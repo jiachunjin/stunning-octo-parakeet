@@ -44,10 +44,8 @@ class MyTrainer(Trainer):
         super().__init__(config)
 
     def _load_models(self):
-        from model.vq.lfq import LFQ_autoencoder
         from model.internvl.modeling_internvl_chat import InternVLChatModel
 
-        self.down_proj = LFQ_autoencoder(self.config.model.down_proj)
         internvl = InternVLChatModel.from_pretrained(self.config.model.internvl_path)
         self.internvl = equip_internvl(internvl, self.config.model)
     
