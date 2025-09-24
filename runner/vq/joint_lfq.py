@@ -180,7 +180,7 @@ class MyTrainer(Trainer):
 
                     loss_und = kl_div
 
-                    print(loss_und)
+                    print(loss_und, loss_und.shape)
 
                     # self.accelerator.print(vit_features_gen.shape, vit_features_und.shape)
                     exit(0)
