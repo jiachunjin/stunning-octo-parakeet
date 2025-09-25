@@ -1,0 +1,47 @@
+model:
+  vae_path: /data/phd/jinjiachun/ckpt/black-forest-labs/FLUX.1-dev/vae
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-8B
+  vae_path: 
+  lfq_decoder:
+    bottleneck_dim: &bottleneck_dim 16
+    vit:
+      hidden_size: 1024
+      depth: 16
+      num_heads: 16
+      grid_size: 16
+      input_dim: 4096
+      output_dim: *bottleneck_dim
+    mmdit:
+      depth: 16
+      vae_channel: 16
+      hidden_size: 1024
+
+train:
+  root: /data/phd/jinjiachun/experiment
+  resume_path:
+  skip_keys: []
+  global_step: 0
+
+  exp_name: &exp_name vq_llava_distill
+  proj_name: *exp_name
+  output_dir: 0925_lfq_decoder
+  logging_dir: logs
+  mixed_precision: bf16
+  gradient_accumulation_steps: 1
+  report_to: null
+
+  lr: 1e-4
+  num_iter: 100000
+  save_every: 2000
+
+  hp_loss_gen: 1.0
+
+data:
+  wds_path: [/data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Long-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-Short-Caption, /data/phd/jinjiachun/dataset/BLIP3o/BLIP3o-Pretrain-JourneyDB]
+  img_size: 448
+  cfg_drop_rate: 0.1
+  num_img_token: 256
+  max_seq_length: 512
+  buffer_size: 50000
+  batch_size: 4
+  num_workers: 8
