@@ -4,11 +4,61 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import math
 import torch
 import torch.nn as nn
+import numpy as np
 from einops import rearrange
 
 from model.vq.vit import ViT
 from mmdit.mmdit_generalized_pytorch import MMDiT
 
+
+def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=0):
+    """
+    grid_size: int of the grid height and width
+    return:
+    pos_embed: [grid_size*grid_size, embed_dim] or [1+grid_size*grid_size, embed_dim] (w/ or w/o cls_token)
+    """
+    grid_h = np.arange(grid_size, dtype=np.float32)
+    grid_w = np.arange(grid_size, dtype=np.float32)
+    grid = np.meshgrid(grid_w, grid_h)  # here w goes first
+    grid = np.stack(grid, axis=0)
+
+    grid = grid.reshape([2, 1, grid_size, grid_size])
+    pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
+    if cls_token and extra_tokens > 0:
+        pos_embed = np.concatenate([np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0)
+    return pos_embed
+
+
+def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
+    assert embed_dim % 2 == 0
+
+    # use half of dimensions to encode grid_h
+    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
+    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
+
+    emb = np.concatenate([emb_h, emb_w], axis=1) # (H*W, D)
+    return emb
+
+
+def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
+    """
+    embed_dim: output dimension for each position
+    pos: a list of positions to be encoded: size (M,)
+    out: (M, D)
+    """
+    assert embed_dim % 2 == 0
+    omega = np.arange(embed_dim // 2, dtype=np.float64)
+    omega /= embed_dim / 2.
+    omega = 1. / 10000**omega  # (D/2,)
+
+    pos = pos.reshape(-1)  # (M,)
+    out = np.einsum('m,d->md', pos, omega)  # (M, D/2), outer product
+
+    emb_sin = np.sin(out) # (M, D/2)
+    emb_cos = np.cos(out) # (M, D/2)
+
+    emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
+    return emb
 
 class TimestepEmbedder(nn.Module):
     """
@@ -63,6 +113,10 @@ class LFQDecoder(nn.Module):
         )
         self.t_embedder = TimestepEmbedder(config.mmdit.hidden_size)
         
+        self.pos_embed = nn.Parameter(torch.zeros(1, 56 * 56, config.hidden_size), requires_grad=False)
+        pos_embed = get_2d_sincos_pos_embed(self.vit.pos_embed.shape[-1], int(self.config.vit.grid_size ** 0.5))
+        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+        
 
     def forward(self, vit_features, latents, t):
         """
@@ -70,7 +124,7 @@ class LFQDecoder(nn.Module):
         latents: (B, C, H, W)
         """
         latents = rearrange(latents, "b c h w -> b (h w) c")
-        features_down = self.vit(vit_features)
+        features_down = self.vit(vit_features) + self.pos_embed
         p = torch.sigmoid(features_down)
         p_ = (p > 0.5).to(vit_features.dtype)
         feature_bin = p + (p_ - p).detach() # (B, 256, 16)

@@ -41,10 +41,15 @@ class Trainer:
             with open(os.path.join(self.output_dir, "config.yaml"), "w") as f:
                 OmegaConf.save(self.config, f)
 
+        self.accelerator.print("=" * 80)
         self.accelerator.print("Configuration:")
         self.accelerator.print(pprint.pformat(OmegaConf.to_container(config, resolve=True), indent=2, width=120).strip('{}'))
         AcceleratorState().deepspeed_plugin.deepspeed_config['train_micro_batch_size_per_gpu'] = config.data.batch_size
         self.accelerator.print(AcceleratorState().deepspeed_plugin.deepspeed_config)
+        self.accelerator.print("=" * 80)
+        self.accelerator.print(f"Learnable parameters: {sum(p.numel() for p in self.params_to_learn if p.requires_grad) / 1e6} M")
+        self.accelerator.print(f"Accelerator mixed precision: {self.accelerator.mixed_precision}")
+        self.accelerator.print("=" * 80)
 
     def _load_models(self):
         raise NotImplementedError
@@ -61,8 +66,6 @@ class Trainer:
             weight_decay = 5e-2,
             eps          = 1e-8,
         )
-        self.accelerator.print(f"Learnable parameters: {sum(p.numel() for p in self.params_to_learn if p.requires_grad) / 1e6} M")
-        self.accelerator.print(f"Accelerator mixed precision: {self.accelerator.mixed_precision}")
 
     def train(self):
         raise NotImplementedError

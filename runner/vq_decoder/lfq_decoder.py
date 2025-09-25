@@ -101,6 +101,12 @@ class MyTrainer(Trainer):
                         latents = self.vae.encode(x_vae).latent_dist.sample()
                     
                     self.accelerator.print(vit_feature.shape, latents.shape)
+
+                    B = x_intern.shape[0]
+                    t = torch.randint(0, 1000, (B,))
+                    conditions, latents = self.model(vit_feature, latents, t)
+                    self.accelerator.print(conditions.shape, latents.shape)
+
                     exit(0)
 
 
