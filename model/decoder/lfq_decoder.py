@@ -108,7 +108,7 @@ class LFQDecoder(nn.Module):
         print(f"vit has {num_params / 1e6} M parameters")
         self.mmdit = MMDiT(
             depth = config.mmdit.depth,
-            dim_modalities = (config.bottleneck_dim, config.mmdit.vae_channel),
+            dim_modalities = (config.mmdit.hidden_size, config.mmdit.hidden_size),
             dim_cond = config.mmdit.hidden_size,
             qk_rmsnorm = True,
             flash_attn = True,
@@ -116,12 +116,13 @@ class LFQDecoder(nn.Module):
         num_params = sum(p.numel() for p in self.mmdit.parameters())
         print(f"mmdit has {num_params / 1e6} M parameters")
         self.t_embedder = TimestepEmbedder(config.mmdit.hidden_size)
-        # self.x_embedder = nn.Linear(config.mmdit.vae_channel, config.mmdit.hidden_size, bias=True)
-        
-        self.pos_embed = nn.Parameter(torch.zeros(1, 56 * 56, config.mmdit.vae_channel), requires_grad=False)
+        self.x_embedder = nn.Linear(config.mmdit.vae_channel, config.mmdit.hidden_size, bias=True)
+        self.y_embedder = nn.Linear(config.bottleneck_dim, config.mmdit.hidden_size, bias=True)
+        self.out_proj = nn.Linear(config.mmdit.hidden_size, config.mmdit.vae_channel, bias=True)
+
+        self.pos_embed = nn.Parameter(torch.zeros(1, 56 * 56, config.mmdit.hidden_size), requires_grad=False)
         pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], 56)
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
-        
 
     def forward(self, vit_features, latents, t):
         """
@@ -134,10 +135,13 @@ class LFQDecoder(nn.Module):
         p_ = (p > 0.5).to(vit_features.dtype)
         feature_bin = p + (p_ - p).detach() # (B, 256, 16)
 
+        feature_bin = self.y_embedder(feature_bin)
+        latents = self.x_embedder(latents)
         conditions, latents = self.mmdit(
             modality_tokens = (feature_bin, latents),
             time_cond = self.t_embedder(t, vit_features.dtype)
         )
+        latents = self.out_proj(latents)
 
         return conditions, latents
 

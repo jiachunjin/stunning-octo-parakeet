@@ -23,11 +23,11 @@ train:
 
   exp_name: &exp_name vq_decoder
   proj_name: *exp_name
-  output_dir: 0925_lfq_decoder
+  output_dir: 0925_lfq_decoder_add_head_tail
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: swanlab
+  report_to: null
 
   lr: 1e-4
   num_iter: 100000
@@ -42,5 +42,5 @@ data:
   num_img_token: 256
   max_seq_length: 512
   buffer_size: 50000
-  batch_size: 18
+  batch_size: 8
   num_workers: 8
