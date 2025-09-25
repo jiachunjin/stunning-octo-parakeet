@@ -112,9 +112,10 @@ class LFQDecoder(nn.Module):
             qk_rmsnorm = True
         )
         self.t_embedder = TimestepEmbedder(config.mmdit.hidden_size)
+        # self.x_embedder = nn.Linear(config.mmdit.vae_channel, config.mmdit.hidden_size, bias=True)
         
-        self.pos_embed = nn.Parameter(torch.zeros(1, 56 * 56, config.hidden_size), requires_grad=False)
-        pos_embed = get_2d_sincos_pos_embed(self.vit.pos_embed.shape[-1], int(self.config.vit.grid_size ** 0.5))
+        self.pos_embed = nn.Parameter(torch.zeros(1, 56 * 56, config.mmdit.vae_channel), requires_grad=False)
+        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], 56)
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
         
 
@@ -124,7 +125,9 @@ class LFQDecoder(nn.Module):
         latents: (B, C, H, W)
         """
         latents = rearrange(latents, "b c h w -> b (h w) c")
-        features_down = self.vit(vit_features) + self.pos_embed
+        print(latents.shape, self.pos_embed.shape)
+        latents = latents + self.pos_embed
+        features_down = self.vit(vit_features)
         p = torch.sigmoid(features_down)
         p_ = (p > 0.5).to(vit_features.dtype)
         feature_bin = p + (p_ - p).detach() # (B, 256, 16)

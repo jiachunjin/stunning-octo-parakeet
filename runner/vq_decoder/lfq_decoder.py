@@ -99,15 +99,35 @@ class MyTrainer(Trainer):
                     with torch.no_grad():
                         vit_feature = get_vit_feature(self.clip_encoder, x_intern)
                         latents = self.vae.encode(x_vae).latent_dist.sample()
-                    
-                    self.accelerator.print(vit_feature.shape, latents.shape)
 
                     B = x_intern.shape[0]
-                    t = torch.randint(0, 1000, (B,))
-                    conditions, latents = self.model(vit_feature, latents, t)
-                    self.accelerator.print(conditions.shape, latents.shape)
+                    t = torch.randint(0, 1000, (B,), device = self.device)
 
-                    exit(0)
+                    timesteps = torch.randint(0, 1000, (B,), dtype=torch.int64, device=self.device)
+                    noise = torch.randn_like(latents, device=self.device, dtype=latents.dtype)
+                    noisy_latents = train_scheduler.add_noise(latents, noise, timesteps)
+                    target = train_scheduler.get_velocity(latents, noise, timesteps)
+
+                    conditions, pred = self.model(vit_feature, noisy_latents, t)
+
+                    loss = torch.nn.functional.mse_loss(pred, target)
+
+                    self.optimizer.zero_grad()
+                    self.accelerator.backward(loss)
+                    if self.accelerator.sync_gradients:
+                        self.accelerator.clip_grad_norm_(self.params_to_learn, 1.0)
+                        self.optimizer.step()
+
+
+                if self.accelerator.sync_gradients:
+                    self.global_step += 1
+                    self.progress_bar.update(1)
+
+                    logs = dict(
+                        loss = self.accelerator.gather(loss.detach()).mean().item(),
+                    )
+                    self.accelerator.log(logs, step=self.global_step)
+                    self.progress_bar.set_postfix(**logs)
 
 
 def main(args):
