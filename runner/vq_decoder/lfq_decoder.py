@@ -11,6 +11,9 @@ from util.trainer import Trainer
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
+import logging
+logging.basicConfig(level=logging.ERROR)
+
 def pixel_shuffle(x, scale_factor=0.5):
     n, w, h, c = x.size()
     # N, W, H, C --> N, W, H * scale, C // scale

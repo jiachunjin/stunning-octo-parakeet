@@ -21,13 +21,13 @@ train:
   skip_keys: []
   global_step: 0
 
-  exp_name: &exp_name vq_llava_distill
+  exp_name: &exp_name vq_decoder
   proj_name: *exp_name
   output_dir: 0925_lfq_decoder
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: swanlab
 
   lr: 1e-4
   num_iter: 100000
@@ -41,6 +41,6 @@ data:
   cfg_drop_rate: 0.1
   num_img_token: 256
   max_seq_length: 512
-  buffer_size: 50
-  batch_size: 6
+  buffer_size: 50000
+  batch_size: 20
   num_workers: 8
