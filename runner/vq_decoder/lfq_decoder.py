@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import torch
 import argparse
 from omegaconf import OmegaConf
+from einops import rearrange
 from util.trainer import Trainer
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -99,6 +100,7 @@ class MyTrainer(Trainer):
                     with torch.no_grad():
                         vit_feature = get_vit_feature(self.clip_encoder, x_intern)
                         latents = self.vae.encode(x_vae).latent_dist.sample()
+                        latents = rearrange(latents, "b c h w -> b (h w) c")
 
                     B = x_intern.shape[0]
                     t = torch.randint(0, 1000, (B,), device = self.device)

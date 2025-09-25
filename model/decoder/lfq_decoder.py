@@ -5,7 +5,6 @@ import math
 import torch
 import torch.nn as nn
 import numpy as np
-from einops import rearrange
 
 from model.vq.vit import ViT
 from mmdit.mmdit_generalized_pytorch import MMDiT
@@ -124,8 +123,6 @@ class LFQDecoder(nn.Module):
         vit_features: (B, 256, 4096)
         latents: (B, C, H, W)
         """
-        latents = rearrange(latents, "b c h w -> b (h w) c")
-        print(latents.shape, self.pos_embed.shape)
         latents = latents + self.pos_embed
         features_down = self.vit(vit_features)
         p = torch.sigmoid(features_down)
