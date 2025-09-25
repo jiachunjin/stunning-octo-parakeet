@@ -129,14 +129,14 @@ class LFQDecoder(nn.Module):
         vit_features: (B, 256, 4096)
         latents: (B, C, H, W)
         """
+        latents = self.x_embedder(latents)
         latents = latents + self.pos_embed
         features_down = self.vit(vit_features)
         p = torch.sigmoid(features_down)
         p_ = (p > 0.5).to(vit_features.dtype)
         feature_bin = p + (p_ - p).detach() # (B, 256, 16)
-
         feature_bin = self.y_embedder(feature_bin)
-        latents = self.x_embedder(latents)
+
         conditions, latents = self.mmdit(
             modality_tokens = (feature_bin, latents),
             time_cond = self.t_embedder(t, vit_features.dtype)
