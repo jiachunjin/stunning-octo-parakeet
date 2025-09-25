@@ -5,9 +5,10 @@ import math
 import torch
 import torch.nn as nn
 import numpy as np
-
+from einops import rearrange
 from model.vq.vit import ViT
 from mmdit.mmdit_generalized_pytorch import MMDiT
+from timm.models.vision_transformer import PatchEmbed
 
 
 def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=0):
@@ -116,7 +117,8 @@ class LFQDecoder(nn.Module):
         num_params = sum(p.numel() for p in self.mmdit.parameters())
         print(f"mmdit has {num_params / 1e6} M parameters")
         self.t_embedder = TimestepEmbedder(config.mmdit.hidden_size)
-        self.x_embedder = nn.Linear(config.mmdit.vae_channel, config.mmdit.hidden_size, bias=True)
+        # self.x_embedder = nn.Linear(config.mmdit.vae_channel, config.mmdit.hidden_size, bias=True)
+        self.x_embedder = PatchEmbed(56, 2, 16, config.mmdit.hidden_size, bias=True)
         self.y_embedder = nn.Linear(config.bottleneck_dim, config.mmdit.hidden_size, bias=True)
         self.out_proj = nn.Linear(config.mmdit.hidden_size, config.mmdit.vae_channel, bias=True)
 
@@ -130,6 +132,9 @@ class LFQDecoder(nn.Module):
         latents: (B, C, H, W)
         """
         latents = self.x_embedder(latents)
+        print(latents.shape)
+        latents = rearrange(latents, "b c h w -> b (h w) c")
+        print(latents.shape)
         latents = latents + self.pos_embed
         features_down = self.vit(vit_features)
         p = torch.sigmoid(features_down)

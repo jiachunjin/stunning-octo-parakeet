@@ -104,7 +104,7 @@ class MyTrainer(Trainer):
                         vit_feature = get_vit_feature(self.clip_encoder, x_intern)
                         latents = self.vae.encode(x_vae).latent_dist.sample()
                         latents = (latents - self.vae.config.shift_factor) * self.vae.config.scaling_factor
-                        latents = rearrange(latents, "b c h w -> b (h w) c")
+                        # latents = rearrange(latents, "b c h w -> b (h w) c")
 
                     B = x_intern.shape[0]
                     t = torch.randint(0, 1000, (B,), device = self.device)

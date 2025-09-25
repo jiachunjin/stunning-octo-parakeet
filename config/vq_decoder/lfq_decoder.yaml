@@ -4,9 +4,9 @@ model:
   lfq_decoder:
     bottleneck_dim: &bottleneck_dim 16
     vit:
-      hidden_size: 1024
-      depth: 16
-      num_heads: 16
+      hidden_size: 512
+      depth: 8
+      num_heads: 8
       grid_size: 16
       input_dim: 4096
       output_dim: *bottleneck_dim
@@ -42,5 +42,5 @@ data:
   num_img_token: 256
   max_seq_length: 512
   buffer_size: 50000
-  batch_size: 8
+  batch_size: 7
   num_workers: 8
