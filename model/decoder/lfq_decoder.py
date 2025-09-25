@@ -104,12 +104,17 @@ class LFQDecoder(nn.Module):
         super().__init__()
         self.config = config
         self.vit = ViT(config.vit)
+        num_params = sum(p.numel() for p in self.vit.parameters())
+        print(f"vit has {num_params / 1e6} M parameters")
         self.mmdit = MMDiT(
             depth = config.mmdit.depth,
             dim_modalities = (config.bottleneck_dim, config.mmdit.vae_channel),
             dim_cond = config.mmdit.hidden_size,
-            qk_rmsnorm = True
+            qk_rmsnorm = True,
+            flash_attn = True,
         )
+        num_params = sum(p.numel() for p in self.mmdit.parameters())
+        print(f"mmdit has {num_params / 1e6} M parameters")
         self.t_embedder = TimestepEmbedder(config.mmdit.hidden_size)
         # self.x_embedder = nn.Linear(config.mmdit.vae_channel, config.mmdit.hidden_size, bias=True)
         
