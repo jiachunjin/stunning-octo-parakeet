@@ -145,6 +145,7 @@ class LFQDecoder(nn.Module):
             time_cond = self.t_embedder(t, vit_features.dtype)
         )
         latents = self.out_proj(latents)
+        latents = rearrange(latents, "b (h w) d -> b d h w", h=28, w=28)
         latents = rearrange(latents, "b (p1 p2 c) h w -> b c (h p1) (w p2)", p1=2, p2=2)
 
         return conditions, latents
