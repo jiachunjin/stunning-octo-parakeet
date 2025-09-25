@@ -54,10 +54,10 @@ class MyTrainer(Trainer):
         lfq_decoder = LFQDecoder(self.config.model.lfq_decoder)
 
         vae.requires_grad_(False)
-        vae = vae.to(self.device, self.dtype).eval()
         clip_encoder.requires_grad_(False)
-        clip_encoder = clip_encoder.to(self.device, self.dtype).eval()
 
+        self.vae = vae.to(self.device, self.dtype).eval()
+        self.clip_encoder = clip_encoder.to(self.device, self.dtype).eval()
         self.model = lfq_decoder
 
     def _load_dataloader(self):
