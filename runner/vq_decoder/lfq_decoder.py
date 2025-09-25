@@ -104,14 +104,11 @@ class MyTrainer(Trainer):
                     exit(0)
 
 
-                    
-
-
-
 def main(args):
     config = OmegaConf.load(args.config)
     trainer = MyTrainer(config)
     trainer.train()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
