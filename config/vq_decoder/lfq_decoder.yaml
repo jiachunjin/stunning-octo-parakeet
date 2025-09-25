@@ -1,7 +1,6 @@
 model:
   vae_path: /data/phd/jinjiachun/ckpt/black-forest-labs/FLUX.1-dev/vae
   internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-8B
-  vae_path: 
   lfq_decoder:
     bottleneck_dim: &bottleneck_dim 16
     vit:
