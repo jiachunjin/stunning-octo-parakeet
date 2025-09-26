@@ -1,0 +1,13 @@
+model:
+  vae_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium/vae
+  internvl_path: /data/phd/jinjiachun/ckpt/OpenGVLab/InternVL3_5-8B
+  mmdit:
+    sd3_5_path: /data/phd/jinjiachun/ckpt/stabilityai/stable-diffusion-3.5-medium
+    lfq_vit:
+      hidden_size: 1024
+      depth: 16
+      num_heads: 16
+      grid_size: 16
+      input_dim: 4096
+      output_dim: 16
+    load_pretrained: true
