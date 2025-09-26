@@ -125,24 +125,24 @@ class MyTrainer(Trainer):
                         self.optimizer.step()
 
 
-                if self.accelerator.sync_gradients:
-                    self.global_step += 1
-                    self.progress_bar.update(1)
+                    if self.accelerator.sync_gradients:
+                        self.global_step += 1
+                        self.progress_bar.update(1)
 
-                    logs = dict(
-                        loss = self.accelerator.gather(loss.detach()).mean().item(),
-                    )
-                    self.accelerator.log(logs, step=self.global_step)
-                    self.progress_bar.set_postfix(**logs)
+                        logs = dict(
+                            loss = self.accelerator.gather(loss.detach()).mean().item(),
+                        )
+                        self.accelerator.log(logs, step=self.global_step)
+                        self.progress_bar.set_postfix(**logs)
 
-                    if self.global_step > 0 and self.global_step % self.config.train.save_every == 0 and self.accelerator.is_main_process:
-                        self.model.eval()
-                        state_dict = self.accelerator.unwrap_model(self.model).state_dict()
-                        save_path = os.path.join(self.output_dir, f"lfq_decoder-{self.config.train.exp_name}-{self.global_step}")
-                        torch.save(state_dict, save_path)
-                        print(f"lfq_decoder saved to {save_path}")
+                        if self.global_step > 0 and self.global_step % self.config.train.save_every == 0 and self.accelerator.is_main_process:
+                            self.model.eval()
+                            state_dict = self.accelerator.unwrap_model(self.model).state_dict()
+                            save_path = os.path.join(self.output_dir, f"lfq_decoder-{self.config.train.exp_name}-{self.global_step}")
+                            torch.save(state_dict, save_path)
+                            print(f"lfq_decoder saved to {save_path}")
 
-                    self.accelerator.wait_for_everyone()
+                        self.accelerator.wait_for_everyone()
 
             self.epoch += 1
             self.accelerator.print(f"epoch {self.epoch}: finished")
