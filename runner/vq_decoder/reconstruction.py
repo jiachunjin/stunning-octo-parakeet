@@ -18,7 +18,7 @@ def recon_lfq():
     dtype = torch.bfloat16
 
     exp_dir = "/data/phd/jinjiachun/experiment/vq_decoder/0925_lfq_decoder_add_head_tail"
-    step = 22000
+    step = 24000
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
     ckpt_path = os.path.join(exp_dir, f"lfq_decoder-{config.train.exp_name}-{step}")
@@ -68,6 +68,7 @@ def recon_lfq():
     x = (x - imagenet_mean) / imagenet_std
 
     vit_feature = get_vit_feature(clip_encoder, x)
+    print(vit_feature.shape)
 
     # ---------- reconstruct ----------
     from diffusers import DDIMScheduler
@@ -88,7 +89,7 @@ def recon_lfq():
         rescale_betas_zero_snr = True
     )
     scheduler.set_timesteps(50)
-    B = 16
+    B = vit_feature.shape[0]
     x = torch.randn((B, 16, 56, 56), device=device, dtype=dtype)
     x *= scheduler.init_noise_sigma
 
@@ -98,16 +99,16 @@ def recon_lfq():
         _, noise_pred = lfq_decoder(vit_feature, x, t_sample)
         x = scheduler.step(noise_pred, t, x).prev_sample    
 
-    x = vae.decode(x)
+    x = 1 / vae.config.scaling_factor * x + vae.config.shift_factor
+    x = vae.decode(x).sample
     x = (x + 1) / 2
     x = x.clamp(0, 1)
-    x = x.permute(0, 2, 3, 1)
-    x = x.cpu().numpy()
-    x = (x * 255).astype(np.uint8)
-    x = Image.fromarray(x)
-    x.save("reconstruction.png")
+    print(x.shape)
 
-    print("reconstruction done")
+    import torchvision.utils as vutils
+    vutils.save_image(x, "./recon.png", nrow=4, normalize=False)
+    # print(f"Samples saved to {sample_path}")    
+
 
 
 if __name__ == "__main__":

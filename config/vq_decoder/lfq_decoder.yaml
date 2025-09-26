@@ -4,15 +4,17 @@ model:
   lfq_decoder:
     bottleneck_dim: &bottleneck_dim 16
     vit:
-      hidden_size: 512
-      depth: 8
-      num_heads: 8
+      hidden_size: 1024
+      depth: 16
+      num_heads: 16
       grid_size: 16
       input_dim: 4096
       output_dim: *bottleneck_dim
     mmdit:
+      patch_size: 4
       depth: 16
       vae_channel: 16
+      heads: 16
       hidden_size: 1024
 
 train:
@@ -23,11 +25,11 @@ train:
 
   exp_name: &exp_name vq_decoder
   proj_name: *exp_name
-  output_dir: 0925_lfq_decoder_add_head_tail
+  output_dir: 0926_lfq_decoder_psz4
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: swanlab
+  report_to: null
 
   lr: 1e-4
   num_iter: 100000
@@ -41,6 +43,6 @@ data:
   cfg_drop_rate: 0.1
   num_img_token: 256
   max_seq_length: 512
-  buffer_size: 50000
+  buffer_size: 50
   batch_size: 24
   num_workers: 8
