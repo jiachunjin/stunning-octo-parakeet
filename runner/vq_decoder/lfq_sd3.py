@@ -147,10 +147,25 @@ class MyTrainer(Trainer):
                         self.progress_bar.update(1)
 
                         logs = dict(
-                            loss = self.accelerator.gather(loss.detach()).mean().item(),
+                            loss_sd3 = self.accelerator.gather(loss.detach()).mean().item(),
                         )
                         self.accelerator.log(logs, step=self.global_step)
                         self.progress_bar.set_postfix(**logs)
+
+                        if self.global_step > 0 and self.global_step % self.config.train.save_every == 0 and self.accelerator.is_main_process:
+                            self.model.eval()
+                            state_dict = self.accelerator.unwrap_model(self.model).state_dict()
+                            save_path = os.path.join(self.output_dir, f"lfq_sd3_decoder-{self.config.train.exp_name}-{self.global_step}")
+                            torch.save(state_dict, save_path)
+                            print(f"lfq_sd3_decoder saved to {save_path}")
+
+                        self.accelerator.wait_for_everyone()
+
+            self.epoch += 1
+            self.accelerator.print(f"epoch {self.epoch}: finished")
+            self.accelerator.log({"epoch": self.epoch}, step=self.global_step)
+
+        self.accelerator.end_training()
 
 def main(args):
     config = OmegaConf.load(args.config)

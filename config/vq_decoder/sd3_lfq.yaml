@@ -39,5 +39,5 @@ data:
   num_img_token: 256
   max_seq_length: 512
   buffer_size: 50
-  batch_size: 24
+  batch_size: 50
   num_workers: 8
