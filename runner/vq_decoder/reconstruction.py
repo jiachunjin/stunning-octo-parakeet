@@ -27,7 +27,8 @@ def recon_lfq():
     clip_encoder = InternVLChatModel.from_pretrained(config.model.internvl_path).vision_model
     lfq_decoder = LFQDecoder(config.model.lfq_decoder)
 
-    lfq_decoder.load_state_dict(torch.load(ckpt_path), map_location="cpu", weights_only=True, strict=True)
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    lfq_decoder.load_state_dict(ckpt, strict=True)
     lfq_decoder = lfq_decoder.to(device, dtype).eval()
     vae = vae.to(device, dtype).eval()
     clip_encoder = clip_encoder.to(device, dtype).eval()
