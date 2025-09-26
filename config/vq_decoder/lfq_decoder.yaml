@@ -27,7 +27,7 @@ train:
   logging_dir: logs
   mixed_precision: bf16
   gradient_accumulation_steps: 1
-  report_to: null
+  report_to: swanlab
 
   lr: 1e-4
   num_iter: 100000
@@ -42,5 +42,5 @@ data:
   num_img_token: 256
   max_seq_length: 512
   buffer_size: 50000
-  batch_size: 7
+  batch_size: 24
   num_workers: 8

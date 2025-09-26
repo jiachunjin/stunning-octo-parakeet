@@ -132,7 +132,7 @@ class LFQDecoder(nn.Module):
         latents: (B, C, H, W)
         """
         latents = self.x_embedder(latents)
-        print(latents.shape)
+        # print(latents.shape)
         latents = latents + self.pos_embed
         features_down = self.vit(vit_features)
         p = torch.sigmoid(features_down)
