@@ -63,7 +63,11 @@ class MyTrainer(Trainer):
         self.vae = vae.to(self.device, self.dtype).eval()
         self.clip_encoder = clip_encoder.to(self.device, self.dtype).eval()
         self.model = mmdit
-    
+
+    def _load_dataloader(self):
+        from util.dataloader import get_blip3o_dataloader
+        self.dataloader = get_blip3o_dataloader(self.config.data, self.accelerator)
+
     def train(self):
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
         training_done = False
