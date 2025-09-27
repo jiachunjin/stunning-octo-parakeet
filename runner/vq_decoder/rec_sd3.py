@@ -18,7 +18,7 @@ def sample_sd3_5(
     num_inference_steps = 20,
     guidance_scale      = 1.0,
     seed                = None,
-    multi_modal_context = False,
+    # multi_modal_context = False,
 ):
     if seed is not None:
         torch.manual_seed(seed)
@@ -56,7 +56,7 @@ def sample_sd3_5(
             t           = t,
             context     = context_,
             y           = None,
-            multi_modal_context = multi_modal_context,
+            # multi_modal_context = multi_modal_context,
         )
 
         if guidance_scale > 1.0:
@@ -92,7 +92,7 @@ def recon_lfq_sd3():
     dtype = torch.bfloat16
 
     exp_dir = "/data/phd/jinjiachun/experiment/vq_decoder/0926_lfq_sd3_decoder_fulltune"
-    step = 54000
+    step = 56000
 
     config_path = os.path.join(exp_dir, "config.yaml")
     config = OmegaConf.load(config_path)
@@ -101,7 +101,7 @@ def recon_lfq_sd3():
     vae = AutoencoderKL.from_pretrained(config.model.vae_path)
     clip_encoder = InternVLChatModel.from_pretrained(config.model.internvl_path).vision_model
     mmdit = load_mmdit_lfq(config.model.mmdit)
-    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.sd3_5_path, subfolder="scheduler")
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(config.model.mmdit.sd3_5_path, subfolder="scheduler")
 
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     mmdit.load_state_dict(ckpt, strict=True)
@@ -168,7 +168,7 @@ def recon_lfq_sd3():
     print(samples.shape)
 
     import torchvision.utils as vutils
-    sample_path = f"asset/mmdit/aligner_free/{config.train.exp_name}_{step}.png"
+    sample_path = f"assets/lfq_decoder/{config.train.exp_name}_{step}.png"
     vutils.save_image(samples, sample_path, nrow=2, normalize=False)
     print(f"Samples saved to {sample_path}")    
 

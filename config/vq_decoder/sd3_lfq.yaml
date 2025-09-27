@@ -10,13 +10,13 @@ model:
       grid_size: 16
       input_dim: 4096
       output_dim: 16
-    load_pretrained: true
+    load_pretrained: false
 
 train:
   root: /data/phd/jinjiachun/experiment
-  resume_path:
+  resume_path: /data/phd/jinjiachun/experiment/vq_decoder/0926_lfq_sd3_decoder_fulltune/lfq_sd3_decoder-vq_decoder-58000
   skip_keys: []
-  global_step: 0
+  global_step: 58000
 
   exp_name: &exp_name vq_decoder
   proj_name: *exp_name
@@ -39,5 +39,5 @@ data:
   num_img_token: 256
   max_seq_length: 512
   buffer_size: 50
-  batch_size: 50
+  batch_size: 45
   num_workers: 8
