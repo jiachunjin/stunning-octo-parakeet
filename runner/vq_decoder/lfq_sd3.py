@@ -56,6 +56,11 @@ class MyTrainer(Trainer):
         vae = AutoencoderKL.from_pretrained(self.config.model.vae_path)
         clip_encoder = InternVLChatModel.from_pretrained(self.config.model.internvl_path).vision_model
         mmdit = load_mmdit_lfq(self.config.model.mmdit)
+        if self.config.train.resume_path is not None:
+            ckpt = torch.load(self.config.train.resume_path, map_location="cpu", weights_only=True)
+            ckpt = {k: v for k, v in ckpt.items() if k not in self.config.train.skip_keys}
+            m, u = mmdit.load_state_dict(ckpt, strict=False)
+            print(f"missing keys: {m}, unmatched keys: {u}")
 
         vae.requires_grad_(False)
         clip_encoder.requires_grad_(False)
