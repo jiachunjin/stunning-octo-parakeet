@@ -42,13 +42,6 @@ def load_mmdit_lfq(config):
         dtype                    = dtype,
         verbose                  = False,
     )
-    # --------- add lfq vit ---------
-    from model.vq.vit import ViT
-    vit = ViT(config.lfq_vit)
-    num_params = sum(p.numel() for p in vit.parameters())
-    print(f"vit has {num_params / 1e6} M parameters")
-    vit.requires_grad_(True)
-    transformer.vit = vit
     # --------- load pretrained weights ---------
     if config.load_pretrained:
         ckpt = load_file(os.path.join(config.sd3_5_path, "sd3.5_medium.safetensors"))
@@ -64,13 +57,24 @@ def load_mmdit_lfq(config):
         print(f"unexpected keys: {u}")
 
     # --------- define trainable parameters ---------
-    transformer.requires_grad_(False)
+    transformer.requires_grad_(True)
     transformer.context_embedder.requires_grad_(True)
     num_para = sum(p.numel() for p in transformer.context_embedder.parameters())
     print("context_embedder parameters: ", num_para / 1e6)
     for name, param in transformer.named_parameters():
         if "context_block" in name:
             param.requires_grad_(True)
+
+    num_para = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
+    print("trainable parameters in context blocks: ", num_para / 1e6)
+
+    # --------- add lfq vit ---------
+    from model.vq.vit import ViT
+    vit = ViT(config.lfq_vit)
+    num_params = sum(p.numel() for p in vit.parameters())
+    print(f"vit has {num_params / 1e6} M parameters")
+    vit.requires_grad_(True)
+    transformer.vit = vit
 
     num_para = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
     print("total parameters: ", num_para / 1e6)

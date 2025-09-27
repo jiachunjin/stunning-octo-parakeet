@@ -42,6 +42,14 @@ class ViT(nn.Module):
         feature_bin = p + (p_ - p).detach() # (B, 256, 16)
 
         return feature_bin
+    
+    @torch.no_grad()
+    def get_code(self, x):
+        x_low_dim = self.forward(x)
+        p = torch.sigmoid(x_low_dim)
+        p_ = (p > 0.5).to(x.dtype)
+
+        return p_
 
     def fetch_pos(self, height, width, device):
         if (height, width) in self.precompute_pos:
